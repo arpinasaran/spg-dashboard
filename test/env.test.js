@@ -59,6 +59,29 @@ test('a hash inside quotes is data, not a comment', () => {
   assert.equal(out.SESSION_SECRET, 'abc#def');
 });
 
+/* `vercel env pull` cannot return a Secret-typed value and writes "[SENSITIVE]" instead. That
+   string must never reach process.env: scripts/sync-snapshot.js only checks that the
+   credentials are *present*, so a placeholder would pass its check and then fail inside
+   Google's auth library, where the error says nothing about the real cause. */
+test('a [SENSITIVE] placeholder is treated as absent', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'env-test-'));
+  const file = path.join(dir, '.env');
+  fs.writeFileSync(file, 'RUTE_TEST_SECRET="[SENSITIVE]"\nRUTE_TEST_REAL=betulan\n');
+
+  delete process.env.RUTE_TEST_SECRET;
+  delete process.env.RUTE_TEST_REAL;
+  try {
+    const { applied } = env.load(file);
+    assert.equal(process.env.RUTE_TEST_SECRET, undefined);
+    assert.equal(process.env.RUTE_TEST_REAL, 'betulan'); // the rest of the file still loads
+    assert.deepEqual(applied, ['RUTE_TEST_REAL']);
+  } finally {
+    delete process.env.RUTE_TEST_SECRET;
+    delete process.env.RUTE_TEST_REAL;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('a missing .env is silence, not a crash', () => {
   const result = env.load(path.join(os.tmpdir(), 'definitely-not-here-' + Date.now(), '.env'));
   assert.deepEqual(result.applied, []);
