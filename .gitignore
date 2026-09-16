@@ -3,5 +3,5 @@ data/
 server.log
 .DS_Store
 
-.env
+.env*
 .vercel
