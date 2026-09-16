@@ -18,14 +18,8 @@ const credentials = require('../lib/credentials');
 const roster = require('../lib/roster');
 const config = require('../config');
 
-// No 0/O/1/l/I: these get written on paper, read aloud over the phone, and typed on a
-// phone keyboard in the field.
-const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
-
-function generatePassword(length = 12) {
-  const bytes = require('crypto').randomBytes(length);
-  return [...bytes].map(b => ALPHABET[b % ALPHABET.length]).join('');
-}
+// The format lives in lib/credentials.js, next to the comment explaining what four characters
+// do and do not buy.
 
 async function lookupName(opsId) {
   try {
@@ -64,18 +58,22 @@ async function main() {
   }
 
   const supplied = args[1];
-  const password = supplied || generatePassword();
+  const password = supplied || credentials.generatePassword(opsId);
   const name = await lookupName(opsId);
 
   const { created } = await credentials.setPassword(opsId, name, password);
 
   console.log(`\n${created ? 'Akun dibuat' : 'Kata sandi diganti'} untuk ${opsId}${name ? ` (${name})` : ''}.`);
+  console.log(`\n  Kata sandi: ${password}\n`);
   if (!supplied) {
-    console.log(`\n  Kata sandi: ${password}\n`);
-    console.log('Catat sekarang — yang tersimpan di sheet hanya hash-nya, jadi ini tidak bisa');
-    console.log('dilihat lagi. Kalau hilang, jalankan perintah ini sekali lagi.');
+    console.log(`Formatnya 1 huruf + 3 angka berurutan dari OS ID ${opsId}`
+      + ` (pilihan angka: ${credentials.digitWindows(opsId).join(', ')}).`);
   }
-  console.log(`\nTersimpan di "${credentials.TAB}" pada spreadsheet Attendance (${config.sheets.attendanceDb}).`);
+  console.log(`\nTersimpan di dua tab pada spreadsheet Attendance (${config.sheets.attendanceDb}):`);
+  console.log(`  "${credentials.TAB}"  — hash-nya, yang dipakai untuk login`);
+  console.log(`  "${credentials.PASSWORD_TAB}" — kata sandinya apa adanya, buat dibacakan ke SPG`);
+  console.log('\nSiapa pun yang bisa membuka spreadsheet itu bisa masuk sebagai SPG mana pun');
+  console.log('yang tercatat di sana — batasi aksesnya kalau ini sudah dipakai sungguhan.');
   console.log('Supaya login-nya aktif, deployment harus punya AUTH_MODE=spg dan SESSION_SECRET.');
 }
 

@@ -23,6 +23,9 @@ module.exports = {
     // Per-SPG password hashes, in the Attendance spreadsheet because that is the only file
     // this app both owns and can write to from a deployment. See lib/credentials.js.
     credentialsTab: 'SPG Credentials',
+    // The human-readable record a supervisor reads a password out from. Separate from the
+    // hashes above so it can be restricted or emptied later without breaking anyone's login.
+    passwordsTab: 'SPG Passwords',
   },
 
   // Where attendance photos live. Previously data/photos/ and nowhere else, which meant the
@@ -39,8 +42,14 @@ module.exports = {
   rules: {
     poiRadiusMeters: 250,       // confirmed by the product owner
     weeklyTarget: 5,            // interim figure pending a real per-SPG target source
-    lateAfterHour: 10,          // clock-in at/after 10:00 local = "Late"  (assumption — unconfirmed)
-    earlyBeforeHour: 16,        // clock-out before 16:00 local = "Early" (assumption — unconfirmed)
+
+    /* A shift is measured by its length, not by the clock. There used to be a 10:00 "late"
+       line and a 16:00 "early" line, which assumed everyone works the same hours — an SPG
+       who legitimately started at 11:00 was marked late for it. What actually matters is
+       that a full day was worked, so clock-out is simply locked until this many hours have
+       passed since clock-in. It is a gate, not a grade: there is nothing to mark late,
+       because there is no wrong time to start. */
+    minShiftHours: 9,
     photoRetentionDays: 14,
     recommendedPoiCount: 3,     // how many of the hub's POIs are drawn as today's recommendation
   },

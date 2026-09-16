@@ -66,9 +66,9 @@ function page({ error = '', opsId = '' } = {}) {
 <body>
   <form method="post" action="/login">
     <h1>Rute Harian</h1>
-    <p class="sub">Masuk dengan OpsID dan kata sandi kamu.</p>
+    <p class="sub">Masuk dengan OS ID dan kata sandi kamu.</p>
 
-    <label for="opsId">OpsID</label>
+    <label for="opsId">OS ID</label>
     <input id="opsId" name="opsId" type="text" value="${escape(opsId)}"
            autocomplete="username" autocapitalize="characters" autocorrect="off"
            spellcheck="false" required ${opsId ? '' : 'autofocus'}>
@@ -100,6 +100,11 @@ router.post('/login', express.urlencoded({ extended: false }), async (req, res) 
   try {
     authenticated = await credentials.authenticate(opsId, password);
   } catch (err) {
+    // The throttle is what lets the password be four characters at all, so say plainly that
+    // it has tripped rather than hiding it behind the generic failure message.
+    if (err.status === 429) {
+      return res.status(429).type('html').send(page({ opsId, error: err.message }));
+    }
     console.error(`Login gagal dibaca dari sheet: ${err.message}`);
     return res.status(503).type('html').send(page({
       opsId,
@@ -112,7 +117,7 @@ router.post('/login', express.urlencoded({ extended: false }), async (req, res) 
     // turn this form into a way to discover which SPGs have accounts.
     return res.status(401).type('html').send(page({
       opsId,
-      error: 'OpsID atau kata sandi salah.',
+      error: 'OS ID atau kata sandi salah.',
     }));
   }
 

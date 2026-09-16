@@ -51,8 +51,7 @@ async function bootstrap(opsId = config.spg.opsId) {
     proposalCategories: await proposalCategories(me.hub),
     rules: {
       poiRadiusMeters: config.rules.poiRadiusMeters,
-      lateAfterHour: config.rules.lateAfterHour,
-      earlyBeforeHour: config.rules.earlyBeforeHour,
+      minShiftHours: config.rules.minShiftHours,
     },
     meta: {
       identity: meta(identity.identityCache(me.opsId)),

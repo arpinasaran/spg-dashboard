@@ -12,7 +12,7 @@ let POIS = [];
 let HISTORY = [];
 let KPI = null;
 let META = null;
-let RULES = { poiRadiusMeters: 250, lateAfterHour: 10, earlyBeforeHour: 16 };
+let RULES = { poiRadiusMeters: 250, minShiftHours: 9 };
 let CATS = ['Semua'];
 let poiFilter = 'Semua', poiQuery = '';
 // Real rows from the "POI Proposals" tab of the POI Master spreadsheet. null means that tab
@@ -152,11 +152,14 @@ function applyIdentity() {
   const initials = ME.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
   $('#kpiAvatar').textContent = initials || '?';
   $('#kpiIdentityName').textContent = ME.name;
-  $('#kpiIdentitySub').textContent = `OpsID ${ME.opsId} · ${myCity()}`;
+  $('#kpiIdentitySub').textContent = `OS ID ${ME.opsId} · ${myCity()}`;
 }
 
 function applyTodayState(today) {
   state.sessionId = today.sessionId;
+  // The server's own answer to "may this session clock out yet", not a second calculation of
+  // it — see shiftGate in lib/attendance.js.
+  state.gate = today.gate || null;
   if (today.status === 'not_started') {
     state.attendance = 'not_started';
     return;
@@ -195,6 +198,26 @@ function renderCheckpoints() {
 /* ---------- attendance ticket ---------- */
 function poiName(id) { const p = POIS.find(x => x.id === id); return p ? p.name : 'lokasi lain'; }
 
+/* The gate, recomputed against the clock on each render rather than trusted as the snapshot
+   the server sent. The page can sit open for hours — an SPG leaves it on the home screen all
+   shift — so a msLeft captured at load would count down to nothing and stay there. */
+function gateNow() {
+  const g = state.gate;
+  if (!g || !g.unlocksAt) return { locked: false, msLeft: 0, unlocksAt: null };
+  const unlocksAt = new Date(g.unlocksAt);
+  const msLeft = Math.max(0, unlocksAt.getTime() - Date.now());
+  return { locked: msLeft > 0, msLeft, unlocksAt };
+}
+
+function fmtLeft(ms) {
+  const mins = Math.ceil(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h} jam ${m} mnt`;
+  if (h) return `${h} jam`;
+  return `${m} mnt`;
+}
+
 function renderTicket() {
   const stamp = $('#ticketStamp'), headline = $('#ticketHeadline'),
     note = $('#ticketNote'), meta = $('#ticketMeta'), btn = $('#btnPrimaryAction');
@@ -203,15 +226,25 @@ function renderTicket() {
   if (state.attendance === 'not_started') {
     stamp.className = 'daystatus st-neutral'; stamp.textContent = 'Belum Absen';
     headline.textContent = 'Siap mulai bertugas?';
-    note.innerHTML = `Absen masuk sebelum <b>10.00</b>`;
+    // No start deadline any more: the shift is measured from whenever it begins.
+    note.innerHTML = `Absen pulang terbuka <b>${RULES.minShiftHours} jam</b> setelah absen masuk`;
     btn.textContent = 'Absen Masuk'; btn.dataset.target = 'sheetClockIn';
   } else if (state.attendance === 'clocked_in') {
-    const isLate = state.clockInStatus === 'Late';
-    stamp.className = 'daystatus ' + (isLate ? 'st-caution' : 'st-verified');
-    stamp.textContent = isLate ? 'Terlambat' : 'Sedang Bertugas';
+    stamp.className = 'daystatus st-verified';
+    stamp.textContent = 'Sedang Bertugas';
     headline.textContent = (!state.clockInPOI || state.clockInPOI === 'other') ? 'Bertugas dari lokasi lain' : 'Bertugas di ' + poiName(state.clockInPOI);
-    note.innerHTML = `Masuk <b>${fmtTime(state.clockInTime)}</b> · Pulang setelah <b>16.00</b>`;
-    btn.textContent = 'Absen Pulang'; btn.dataset.target = 'sheetClockOut';
+
+    /* The clock-out button stays locked until the shift is long enough, and says how much
+       longer rather than just refusing. An SPG who taps a dead button learns nothing; one
+       who reads "3 jam 20 menit lagi" knows when to come back. The server enforces the same
+       moment, so this is a courtesy, not the rule itself. */
+    const gate = gateNow();
+    btn.textContent = gate.locked ? `Absen Pulang · ${fmtLeft(gate.msLeft)} lagi` : 'Absen Pulang';
+    btn.disabled = gate.locked;
+    btn.dataset.target = 'sheetClockOut';
+    note.innerHTML = gate.locked
+      ? `Masuk <b>${fmtTime(state.clockInTime)}</b> · Bisa pulang <b>${fmtTime(gate.unlocksAt)}</b>`
+      : `Masuk <b>${fmtTime(state.clockInTime)}</b> · Sudah bisa absen pulang`;
   } else if (state.attendance === 'clocked_out') {
     const needsReview = state.reviewStatus === 'Needs Review';
     stamp.className = 'daystatus ' + (needsReview ? 'st-caution' : 'st-verified');
@@ -328,6 +361,7 @@ function classifySession(s) {
   if (s.reviewStatus === 'Rejected') return { cls: 'alert', label: 'Ditolak' };
   if (s.reviewStatus === 'Needs Review') return { cls: 'caution', label: 'Perlu Ditinjau' };
   if (!s.outTime) return { cls: 'caution', label: 'Belum Absen Pulang' };
+  // Only sessions written before the shift-length rule can still carry this.
   if (s.overallStatus === 'Late') return { cls: 'caution', label: 'Terlambat' };
   return { cls: 'verified', label: 'Valid' };
 }
@@ -681,7 +715,8 @@ async function finishFlow(flow) {
     const result = await api(`/attendance/clock-${flow}`, { method: 'POST', body: JSON.stringify(payload) });
     closeSheet(sheetId);
     toast(flow === 'in'
-      ? `Absen masuk tercatat ${fmtTime(new Date())} · ${result.status === 'Late' ? 'Terlambat' : 'Tepat Waktu'}`
+      // No "on time" / "late" verdict to report any more — starting is just starting.
+      ? `Absen masuk tercatat ${fmtTime(new Date())} · pulang bisa setelah ${RULES.minShiftHours} jam`
       : `Absen pulang tercatat ${fmtTime(new Date())}`);
     // The write response already carries the updated session and history, so there's no
     // read-back round trip here.
