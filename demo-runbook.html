@@ -1,0 +1,494 @@
+<title>Runbook Demo Rute Harian</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#F3F5F3;
+  --surface:#FFFFFF;
+  --surface-2:#EDF0EE;
+  --ink:#171C1A;
+  --ink-soft:#586360;
+  --ink-faint:#8A948F;
+  --line:#DBE0DD;
+  --line-strong:#C3CBC7;
+  --accent:#0E6355;
+  --accent-soft:#D9EBE6;
+  --warn:#86540A;
+  --warn-soft:#F6E9CE;
+  --stop:#9C3326;
+  --stop-soft:#F7DED9;
+  --rail:#0E6355;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#111514;
+    --surface:#181D1B;
+    --surface-2:#1F2523;
+    --ink:#E7EDEA;
+    --ink-soft:#9DA8A3;
+    --ink-faint:#6E7B76;
+    --line:#2A322F;
+    --line-strong:#3A443F;
+    --accent:#4FC0A8;
+    --accent-soft:#16302B;
+    --warn:#E0B061;
+    --warn-soft:#332711;
+    --stop:#E4897A;
+    --stop-soft:#36201C;
+    --rail:#4FC0A8;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#111514;
+  --surface:#181D1B;
+  --surface-2:#1F2523;
+  --ink:#E7EDEA;
+  --ink-soft:#9DA8A3;
+  --ink-faint:#6E7B76;
+  --line:#2A322F;
+  --line-strong:#3A443F;
+  --accent:#4FC0A8;
+  --accent-soft:#16302B;
+  --warn:#E0B061;
+  --warn-soft:#332711;
+  --stop:#E4897A;
+  --stop-soft:#36201C;
+  --rail:#4FC0A8;
+}
+*{box-sizing:border-box;}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15.5px;
+  line-height:1.6;
+  padding-inline:20px;
+  padding-block:36px 72px;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:780px;margin-inline:auto;}
+h1,h2,h3{font-family:"Archivo",system-ui,sans-serif;margin:0;text-wrap:balance;line-height:1.15;}
+p{margin:0;}
+code,kbd,.mono{font-family:"IBM Plex Mono",ui-monospace,"Cascadia Mono",monospace;}
+a{color:var(--accent);text-underline-offset:2px;}
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:3px;border-radius:3px;}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
+
+/* ---- masthead ---- */
+.masthead{display:flex;flex-direction:column;gap:12px;padding-bottom:22px;border-bottom:2px solid var(--ink);}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);}
+h1{font-size:clamp(30px,7vw,42px);font-weight:800;letter-spacing:-.015em;}
+.standfirst{color:var(--ink-soft);font-size:16.5px;max-width:62ch;}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+.fact{display:inline-flex;align-items:baseline;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:5px 10px;font-size:12.5px;}
+.fact b{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);}
+.fact span{color:var(--ink);font-weight:600;}
+
+/* ---- contents ---- */
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px;}
+.toc a{display:inline-block;font-size:12.5px;font-weight:600;text-decoration:none;color:var(--ink-soft);border:1px solid var(--line);background:var(--surface);border-radius:100px;padding:4px 12px;}
+.toc a:hover{color:var(--accent);border-color:var(--accent);}
+
+/* ---- sections ---- */
+section{margin-top:44px;scroll-margin-top:16px;}
+.sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--line-strong);}
+.sec-num{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--ink-faint);flex:none;padding-top:2px;}
+h2{font-size:22px;font-weight:700;letter-spacing:-.01em;flex:1;}
+.lede{color:var(--ink-soft);font-size:15px;margin-bottom:16px;max-width:66ch;}
+
+/* ---- checklist ---- */
+.check{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden;}
+.check li{display:flex;gap:12px;padding:13px 15px;border-bottom:1px solid var(--line);align-items:flex-start;}
+.check li:last-child{border-bottom:none;}
+.check input{margin:4px 0 0;width:17px;height:17px;flex:none;accent-color:var(--accent);cursor:pointer;}
+.check label{cursor:pointer;flex:1;min-width:0;}
+.check .t{font-weight:600;display:block;}
+.check .d{color:var(--ink-soft);font-size:13.5px;display:block;margin-top:2px;}
+.check input:checked + label .t{color:var(--ink-faint);text-decoration:line-through;}
+.check input:checked + label .d{color:var(--ink-faint);}
+
+/* ---- sequence rail (a real sequence: demo beats in order) ---- */
+.beats{list-style:none;margin:0;padding:0;counter-reset:beat;}
+.beats li{counter-increment:beat;position:relative;padding:0 0 22px 46px;}
+.beats li::before{
+  content:counter(beat);position:absolute;left:0;top:0;
+  width:28px;height:28px;border-radius:50%;
+  background:var(--accent-soft);color:var(--rail);
+  font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+}
+.beats li::after{content:"";position:absolute;left:13.5px;top:32px;bottom:4px;width:1px;background:var(--line-strong);}
+.beats li:last-child{padding-bottom:0;}
+.beats li:last-child::after{display:none;}
+.beats h3{font-size:16px;font-weight:700;margin-bottom:3px;}
+.beats p{color:var(--ink-soft);font-size:14.5px;}
+.beats .say{display:block;margin-top:6px;padding-left:12px;border-left:2px solid var(--line-strong);color:var(--ink);font-size:14.5px;}
+.beats .say b{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);display:block;font-weight:600;}
+
+/* ---- source cards (shaped like sheet references) ---- */
+.sources{display:grid;gap:12px;}
+.src{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.src.writes{border-color:var(--accent);}
+.src-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+.src-role{font-size:13.5px;font-weight:700;flex:1;min-width:140px;}
+.tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;}
+.tag.read{background:var(--surface);color:var(--ink-soft);border:1px solid var(--line-strong);}
+.tag.write{background:var(--accent);color:var(--surface);}
+.tag.local{background:var(--warn-soft);color:var(--warn);}
+.src-body{padding:12px 14px;}
+.src-file{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:500;word-break:break-word;}
+.src-tabs{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.sheet-tab{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:var(--accent-soft);color:var(--rail);padding:2px 8px;border-radius:0 0 4px 4px;font-weight:600;}
+.src-cols{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-soft);margin-top:9px;line-height:1.75;word-break:break-word;}
+.src-note{font-size:13.5px;color:var(--ink-soft);margin-top:9px;}
+
+/* ---- callouts ---- */
+.note{border-left:3px solid var(--accent);background:var(--surface);padding:12px 15px;border-radius:0 6px 6px 0;font-size:14.5px;}
+.note.warn{border-left-color:var(--warn);}
+.note.stop{border-left-color:var(--stop);}
+.note b{font-weight:700;}
+.note + .note{margin-top:10px;}
+
+/* ---- command block ---- */
+pre{margin:10px 0 0;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;overflow-x:auto;}
+pre code{font-size:13px;color:var(--ink);white-space:pre;}
+
+/* ---- plain rows ---- */
+.rows{display:flex;flex-direction:column;border-top:1px solid var(--line);}
+.rows > div{display:grid;grid-template-columns:150px 1fr;gap:14px;padding:11px 2px;border-bottom:1px solid var(--line);align-items:start;}
+.rows .k{font-weight:600;font-size:14px;}
+.rows .v{color:var(--ink-soft);font-size:14.5px;}
+.rows .v code{font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:3px;}
+@media (max-width:560px){.rows > div{grid-template-columns:1fr;gap:2px;}}
+
+/* ---- status legend ---- */
+.pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
+.pill{font-size:12px;font-weight:600;padding:3px 10px;border-radius:100px;}
+.pill.ok{background:var(--accent-soft);color:var(--rail);}
+.pill.hold{background:var(--warn-soft);color:var(--warn);}
+.pill.no{background:var(--stop-soft);color:var(--stop);}
+
+/* ---- numbers snapshot ---- */
+.snap{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.snap div{background:var(--surface);padding:12px 13px;}
+.snap .n{font-family:"Archivo",sans-serif;font-size:21px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;}
+.snap .l{font-size:11.5px;color:var(--ink-soft);margin-top:3px;}
+
+footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);color:var(--ink-faint);font-size:12.5px;}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="eyebrow">Runbook · SPG Personal Dashboard</span>
+    <h1>Demo Rute Harian</h1>
+    <p class="standfirst">Urutan cerita, sumber data tiap angka, dan cara mencoba absen + foto secara langsung — plus apa yang harus dilakukan kalau ada yang melenceng di tengah demo.</p>
+    <div class="facts">
+      <span class="fact"><b>Durasi</b><span>±8 menit</span></span>
+      <span class="fact"><b>Alamat</b><span class="mono">localhost:4173</span></span>
+      <span class="fact"><b>Persona</b><span>Bq. Elin Widyawati · OS212341</span></span>
+      <span class="fact"><b>Wilayah</b><span>Sambalia Hub, Kab. Lombok Timur</span></span>
+    </div>
+    <nav class="toc">
+      <a href="#siap">1 · Sebelum mulai</a>
+      <a href="#isi">2 · Isi aplikasi</a>
+      <a href="#data">3 · Sumber data</a>
+      <a href="#alur">4 · Alur demo</a>
+      <a href="#absen">5 · Coba absen + foto</a>
+      <a href="#melenceng">6 · Kalau melenceng</a>
+      <a href="#tanya">7 · Jawaban siap pakai</a>
+    </nav>
+  </header>
+
+  <!-- 1 -->
+  <section id="siap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Sebelum mulai</h2></div>
+    <p class="lede">Lima menit sebelum demo. Yang paling sering bikin demo gagal bukan aplikasinya, tapi kamera yang mati karena alamatnya bukan <code>localhost</code>.</p>
+
+    <ul class="check" id="prep" style="list-style:none;margin:0;padding:0;">
+      <li>
+        <input type="checkbox" id="p1">
+        <label for="p1"><span class="t">Restart server aplikasi</span><span class="d">Server yang sedang jalan sekarang masih memakai kode lama dan cache-nya basi. Hentikan, lalu jalankan ulang dari folder aplikasi.</span></label>
+      </li>
+      <li>
+        <input type="checkbox" id="p2">
+        <label for="p2"><span class="t">Buka di Chrome, bukan di panel preview</span><span class="d">Kamera dan GPS hanya hidup di <code>localhost</code> atau HTTPS. Dibuka dari HP lewat IP jaringan (<code>192.168.x.x</code>), dua-duanya mati tanpa pesan error.</span></label>
+      </li>
+      <li>
+        <input type="checkbox" id="p3">
+        <label for="p3"><span class="t">Pasang tampilan ponsel</span><span class="d">F12 → Ctrl+Shift+M → pilih iPhone atau Pixel. Atau buka jendela seukuran ponsel langsung (perintah di bawah).</span></label>
+      </li>
+      <li>
+        <input type="checkbox" id="p4">
+        <label for="p4"><span class="t">Izinkan kamera saat diminta, tolak izin lokasi</span><span class="d">Kamera perlu diizinkan supaya bisa memotret beneran. Lokasi justru lebih baik ditolak — alasannya di langkah 5.</span></label>
+      </li>
+      <li>
+        <input type="checkbox" id="p5">
+        <label for="p5"><span class="t">Pastikan kartu beranda menunjukkan “Belum Absen”</span><span class="d">Kalau tertulis “Sedang Bertugas” atau “Tugas hari ini selesai”, absen hari ini sudah terisi — lihat bagian 6.</span></label>
+      </li>
+      <li>
+        <input type="checkbox" id="p6">
+        <label for="p6"><span class="t">Cek login Google Workspace CLI</span><span class="d">Semua pembacaan Sheets lewat <code>gws</code>. Kalau tokennya mati, aplikasi tidak bisa membaca apa pun.</span></label>
+      </li>
+    </ul>
+
+<pre><code># jalankan server
+cd C:\Users\SPXID24770\Documents\rute-harian-app
+npm start
+
+# jendela seukuran ponsel
+start chrome --app=http://localhost:4173 --window-size=390,844
+
+# cek login sheets
+gws auth status</code></pre>
+
+    <div class="note" style="margin-top:14px;"><b>Kenapa start-nya lama.</b> Saat <code>npm start</code>, server sengaja membaca semua sheet lebih dulu — 14–35 detik, saat belum ada yang melihat. Setelah itu tiap halaman terbuka dalam hitungan milidetik. Tunggu baris <span class="mono">“Pra-muat: siap dalam …”</span> muncul sebelum membuka browser.</div>
+  </section>
+
+  <!-- 2 -->
+  <section id="isi">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Isi aplikasinya</h2></div>
+    <p class="lede">Empat tab di bawah layar. Satu kalimat per tab, cukup untuk pembukaan.</p>
+
+    <div class="rows">
+      <div><div class="k">Beranda</div><div class="v">Kartu absen hari ini (status, tanggal, satu tombol), ringkasan KPI empat angka, dan tiga titik rekomendasi hari itu. Dirancang muat satu layar penuh tanpa perlu scroll.</div></div>
+      <div><div class="k">POI</div><div class="v">Direktori titik kerja untuk hub si SPG — 8 titik di Sambalia Hub. Bisa dicari, difilter per kategori, tiap baris punya tautan langsung ke Google Maps. Ada juga form usul POI baru.</div></div>
+      <div><div class="k">Riwayat</div><div class="v">14 hari terakhir. Ketuk satu hari untuk melihat jam masuk/pulang, lokasi, akurasi GPS, catatan kendala, dan foto absennya.</div></div>
+      <div><div class="k">KPI</div><div class="v">Funnel minggu berjalan: registered courier → account created → onboarded, plus tingkat konversi, sisa target, dan target harian.</div></div>
+    </div>
+
+    <div class="note" style="margin-top:16px;"><b>Satu detail yang enak ditunjukkan.</b> Di bar atas tertulis <span class="mono">“Data per 14.45”</span> dengan tombol <b>Perbarui</b>. Yang tampil di layar itu snapshot, bukan data live — dan aplikasinya mengaku terang-terangan berapa umur datanya, alih-alih membiarkan angka lama terlihat seperti angka sekarang.</div>
+  </section>
+
+  <!-- 3 -->
+  <section id="data">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Sumber data: tiap angka datang dari mana</h2></div>
+    <p class="lede">Tidak ada data karangan di aplikasi ini. Empat spreadsheet dibaca saja, satu spreadsheet ditulis, dan tiga hal disimpan lokal di laptop.</p>
+
+    <div class="sources">
+
+      <div class="src">
+        <div class="src-top"><span class="src-role">Identitas SPG</span><span class="tag read">baca saja</span></div>
+        <div class="src-body">
+          <div class="src-file">[Field Recruiter] SPG Active Email</div>
+          <div class="src-tabs"><span class="sheet-tab">SPG List LM</span></div>
+          <div class="src-cols">Name · OSID · FMSID · Location · City · Region</div>
+          <p class="src-note">Menentukan nama yang disapa di beranda, hub yang dipakai untuk memfilter POI, dan kota yang muncul di chip kanan atas. Baris dicari berdasarkan OpsID di <code>config.js</code>.</p>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-top"><span class="src-role">Atasan (CF &amp; Coordinator)</span><span class="tag read">baca saja</span></div>
+        <div class="src-body">
+          <div class="src-file">Data PIC SPG</div>
+          <div class="src-tabs"><span class="sheet-tab">PIC SPG</span></div>
+          <div class="src-cols">EMAIL BPOM CF · EMAIL BPOM Coordinator / Team Lead · BPOM Lead Area</div>
+          <p class="src-note">Dipakai untuk jalur review absen. Sifatnya pelengkap: kalau sheet ini tidak terbaca, dashboard SPG tetap terbuka normal.</p>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-top"><span class="src-role">Titik POI</span><span class="tag read">baca saja</span></div>
+        <div class="src-body">
+          <div class="src-file">BPOM – Consolidated POI Master</div>
+          <div class="src-tabs"><span class="sheet-tab">POI Master</span></div>
+          <div class="src-cols">Station Name · POI Location · POI Category · Google Maps · Latitude · Longitude · Geocode Status</div>
+          <p class="src-note">Difilter ke hub si SPG. Koordinatnya yang dipakai untuk mengukur jarak absen. <b>Geocode Status</b> ikut dibaca karena kualitas koordinat beda-beda — 5 dari 8 titik Sambalia hasil pencocokan alamat sebagian, yang bisa meleset ratusan meter.</p>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-top"><span class="src-role">KPI / funnel perekrutan</span><span class="tag read">baca saja</span></div>
+        <div class="src-body">
+          <div class="src-file">[Field Recruiter] BPOM x AI Study</div>
+          <div class="src-tabs"><span class="sheet-tab">Raw_Register</span><span class="sheet-tab">Raw_Creation</span><span class="sheet-tab">Raw_Onboarding</span></div>
+          <div class="src-cols">Raw_Register A (timestamp) · G (ID SPG)<br>Raw_Creation F (timestamp) · N (ID SPG)<br>Raw_Onboarding H (onboard date) · I (lulus) · N (SPG ID)</div>
+          <p class="src-note">Dihitung ulang tiap kali dibaca, dicocokkan lewat <b>FMSID</b> (<code>Ops1622838</code>), bukan lewat nama — kolom atribusi SPG mencampur nama dan kode Ops, jadi pencocokan nama diam-diam menghasilkan nol. <code>Raw_Register</code> sendiri ±185 ribu baris; ini sumber lambatnya.</p>
+        </div>
+      </div>
+
+      <div class="src writes">
+        <div class="src-top"><span class="src-role">Database absensi</span><span class="tag write">ditulis aplikasi</span></div>
+        <div class="src-body">
+          <div class="src-file">SPG Personal Dashboard – Attendance Database</div>
+          <div class="src-tabs"><span class="sheet-tab">Attendance Sessions</span><span class="sheet-tab">Attendance Events</span></div>
+          <div class="src-cols">Sessions A:R — 18 kolom, 1 baris per hari kerja<br>Events A:Q — 17 kolom, 1 baris per absen masuk / pulang</div>
+          <p class="src-note">Satu-satunya sheet yang ditulis aplikasi. Sesi menyimpan ringkasan hari (jam masuk, jam pulang, status, review); event menyimpan bukti per absen (POI, koordinat, akurasi, jarak, tautan foto, catatan, flag).</p>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-top"><span class="src-role">Di laptop ini saja</span><span class="tag local">lokal</span></div>
+        <div class="src-body">
+          <div class="src-cols">data/photos/ &nbsp;— foto absen, retensi 14 hari<br>data/cache/*.json &nbsp;— snapshot tiap sheet<br>data/poi-registry.json &nbsp;— ID tetap tiap POI</div>
+          <p class="src-note">Foto tidak masuk Drive: yang tersimpan di sheet cuma tautan ke berkas lokal. Ini batasan yang jujur disebut saat demo. Registry POI ada karena POI Master tidak punya kolom ID — tanpa itu, POI yang di-<i>rename</i> akan memutus riwayat absen yang menunjuk ke sana.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section id="alur">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Alur demo</h2></div>
+    <p class="lede">Enam beat, berurutan. Inti demonya ada di beat 3.</p>
+
+    <ol class="beats">
+      <li>
+        <h3>Buka beranda</h3>
+        <p>Tunjuk empat hal sekaligus: siapa penggunanya, di kota mana, status absen hari ini, dan angka minggu ini.</p>
+        <span class="say"><b>Katakan</b>Semua yang perlu dilihat SPG sebelum mulai kerja ada di satu layar — tidak perlu scroll sama sekali.</span>
+      </li>
+      <li>
+        <h3>Tunjuk bar data di atas</h3>
+        <p>“Data per 14.45” plus tombol Perbarui. Tekan Perbarui sekali kalau mau menunjukkan pembacaan sungguhan (butuh belasan detik).</p>
+        <span class="say"><b>Katakan</b>Angka di layar itu snapshot. Aplikasinya menyebutkan jam datanya, bukan pura-pura live.</span>
+      </li>
+      <li>
+        <h3>Absen masuk, lengkap dengan foto</h3>
+        <p>Tiga langkah: pilih lokasi → verifikasi GPS → foto. Detail lengkapnya di bagian 5.</p>
+        <span class="say"><b>Katakan</b>Tiga bukti dikumpulkan sekaligus: titik yang dipilih, koordinat perangkat beserta jaraknya ke titik itu, dan foto yang diambil langsung dari kamera — tidak bisa unggah dari galeri.</span>
+      </li>
+      <li>
+        <h3>Buka tab Riwayat</h3>
+        <p>Hari yang barusan dicatat langsung muncul paling atas. Ketuk untuk melihat detail dan fotonya.</p>
+        <span class="say"><b>Katakan</b>Ini yang dilihat CF saat meninjau: jam, lokasi, akurasi GPS, dan foto — bukan sekadar centang hadir.</span>
+      </li>
+      <li>
+        <h3>Mampir ke tab POI</h3>
+        <p>Cari satu nama, buka tautan Google Maps-nya dari daftar.</p>
+        <span class="say"><b>Katakan</b>Daftarnya otomatis mengikuti hub si SPG, langsung dari POI Master — bukan daftar yang ditempel manual.</span>
+      </li>
+      <li>
+        <h3>Tutup di tab KPI</h3>
+        <p>Funnel minggu berjalan. Kalau ada metrik bertuliskan “Belum tersedia”, justru pakai itu.</p>
+        <span class="say"><b>Katakan</b>Kalau sumbernya belum ada datanya minggu ini, ditulis “Belum tersedia”, bukan 0. Angka 0 di sini akan terbaca seperti penilaian atas kerja si SPG, padahal itu masalah pipeline.</span>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 5 -->
+  <section id="absen">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Coba langsung: absen masuk + foto</h2></div>
+    <p class="lede">Dari tombol <b>Absen Masuk</b> di beranda. Tiga langkah, masing-masing tidak bisa dilewati sampai syaratnya terpenuhi.</p>
+
+    <ol class="beats">
+      <li>
+        <h3>Pilih lokasi</h3>
+        <p>Tiga titik rekomendasi hari ini, plus opsi <b>Lokasi lain</b> yang wajib diisi alasan singkat. Untuk demo, pilih titik pertama (<span class="mono">Belanting</span>).</p>
+      </li>
+      <li>
+        <h3>Verifikasi GPS</h3>
+        <p>Aplikasi mengambil koordinat perangkat, lalu menghitung jaraknya ke koordinat POI. Batasnya 250 meter.</p>
+        <span class="say"><b>Penting</b>Kalau izin lokasi diberikan sementara kamu tidak sedang di Lombok, jaraknya jadi ribuan kilometer dan absennya berstatus “Perlu Ditinjau”. Itu perilaku yang benar, tapi merusak alur cerita. <b>Tolak izin lokasi</b> — aplikasi akan memakai lokasi contoh ±60 m dari titik dan menandainya sebagai mode pratinjau di kartu itu sendiri.</span>
+      </li>
+      <li>
+        <h3>Foto</h3>
+        <p>Tekan <b>Aktifkan kamera</b> → izinkan → preview kamera muncul → <b>Ambil foto</b>. Hasilnya bisa diulang dengan <b>Ambil ulang</b>. Foto dikompresi dulu, lalu dikirim bersama data absen dan disimpan ke <code>data/photos/</code>.</p>
+        <span class="say"><b>Kalau kamera tidak muncul</b>Setelah 5 detik aplikasi otomatis menawarkan <b>“Gunakan foto contoh (mode pratinjau)”</b> supaya demo tetap jalan. Alur tetap bisa diselesaikan, cuma poin “foto asli”-nya hilang.</span>
+      </li>
+    </ol>
+
+    <div class="note" style="margin-top:18px;"><b>Setelah tombol “Catat Absen Masuk” ditekan.</b> Muncul notifikasi berisi jam dan status, kartu beranda berubah jadi <b>Sedang Bertugas</b> (atau <b>Terlambat</b> kalau lewat pukul 10.00), tombolnya berganti jadi <b>Absen Pulang</b>, dan barisnya langsung tertulis di Google Sheet.</div>
+
+    <div class="note" style="margin-top:10px;"><b>Kalau sempat, tunjukkan absen pulang juga.</b> Empat langkah, bukan tiga: ada tambahan <b>Hasil aktivitas</b> (selesai / ada kendala + catatan), dan lokasi pulang wajib berbeda dari lokasi masuk — aplikasi menolak kalau sama.</div>
+
+    <div class="pills">
+      <span class="pill ok">Sedang Bertugas · dalam radius, tepat waktu</span>
+      <span class="pill hold">Terlambat · masuk ≥ 10.00</span>
+      <span class="pill hold">Perlu Ditinjau · di luar radius 250 m</span>
+      <span class="pill no">Ditolak · setelah ditinjau CF</span>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="melenceng">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Kalau melenceng di tengah demo</h2></div>
+
+    <div class="rows">
+      <div>
+        <div class="k">Kartu sudah “Tugas hari ini selesai”</div>
+        <div class="v">Absen hari ini sudah terisi, jadi alur absen tidak bisa diulang. Tersedia skrip reset yang hanya menyentuh baris sesi hari ini untuk OpsID di <code>config.js</code> — jalankan tanpa argumen dulu untuk melihat apa yang akan dihapus, baru tambahkan <code>--yes</code>.</div>
+      </div>
+      <div>
+        <div class="k">Muncul “Gagal memperbarui”</div>
+        <div class="v"><code>gws</code> sesekali gagal sesaat tanpa pesan. Tekan <b>Perbarui</b> sekali lagi. Kalau tetap gagal, cek <code>gws auth status</code>.</div>
+      </div>
+      <div>
+        <div class="k">Kamera “tidak tersedia”</div>
+        <div class="v">Alamatnya bukan <code>localhost</code>, atau izinnya pernah ditolak dan tersimpan. Buka gembok di address bar → izinkan kamera → muat ulang halaman.</div>
+      </div>
+      <div>
+        <div class="k">Ctrl+Shift+R terasa lama</div>
+        <div class="v">Memang. Hard refresh sengaja memaksa baca ulang semua sheet (±15–30 detik). Untuk muat ulang cepat, pakai F5 biasa.</div>
+      </div>
+      <div>
+        <div class="k">Absen jadi “Perlu Ditinjau”</div>
+        <div class="v">Posisi perangkat di luar radius 250 m dari titik yang dipilih. Wajar kalau demo tidak dilakukan di Lombok — lihat catatan izin lokasi di bagian 5.</div>
+      </div>
+    </div>
+
+<pre><code># lihat dulu apa yang akan dibersihkan (belum menghapus apa pun)
+node scripts/demo-reset.js
+
+# benar-benar bersihkan absen hari ini
+node scripts/demo-reset.js --yes</code></pre>
+
+    <div class="note stop" style="margin-top:12px;"><b>Skrip ini menulis ke Google Sheet.</b> Ia mengosongkan baris sesi &amp; event hari ini dan menghapus foto hari itu. Cakupannya sengaja sempit — hanya <span class="mono">&lt;OpsID&gt;_&lt;tanggal&gt;</span>, dan tanpa <code>--yes</code> ia tidak menulis apa pun.</div>
+  </section>
+
+  <!-- 7 -->
+  <section id="tanya">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Jawaban siap pakai</h2></div>
+    <p class="lede">Tiga pertanyaan yang hampir pasti muncul, dan angka minggu ini sebagai pegangan.</p>
+
+    <div class="rows">
+      <div>
+        <div class="k">Mana yang sudah sungguhan?</div>
+        <div class="v">Identitas, direktori POI beserta koordinatnya, funnel KPI dari pipeline perekrutan, penulisan absen ke Sheets, penyimpanan foto, geofence 250 m, dan riwayat 14 hari. Semuanya membaca dan menulis sheet yang sebenarnya.</div>
+      </div>
+      <div>
+        <div class="k">Mana yang sengaja ditunda?</div>
+        <div class="v">Login Google multi-pengguna — instance ini selalu mewakili satu SPG yang disetel di <code>config.js</code>. Lalu tampilan CF beserta antrean reviewnya, usulan POI yang belum ditulis ke sheet, dan penyimpanan foto ke Drive.</div>
+      </div>
+      <div>
+        <div class="k">Aturannya dari mana?</div>
+        <div class="v">Radius 250 m sudah dikonfirmasi. Target 5/minggu masih angka sementara karena belum ada sumber target per SPG. Batas telat 10.00 dan batas pulang 16.00 <b>masih asumsi</b> — dua ini justru bagus ditanyakan balik ke audiens, karena keduanya yang menentukan absen seseorang dianggap sah atau tidak.</div>
+      </div>
+      <div>
+        <div class="k">Kenapa arsitekturnya begitu?</div>
+        <div class="v">Sheets API tidak bisa memfilter di sisi server, dan satu tab saja ±185 ribu baris. Jadi server memuat semuanya saat start, menyimpan snapshot di disk, dan menyajikan salinan lama sambil menyegarkan di latar. Hasilnya: 14–35 detik sekali saat start, lalu 2–13 milidetik untuk pengguna.</div>
+      </div>
+    </div>
+
+    <p class="lede" style="margin-top:22px;margin-bottom:10px;">Angka minggu berjalan saat runbook ini disiapkan — <span class="mono">15 Sep 2026, 14.45</span>. Cek ulang sebelum demo, isinya bisa berubah.</p>
+    <div class="snap">
+      <div><div class="n">4</div><div class="l">Onboarded</div></div>
+      <div><div class="n">0</div><div class="l">Registered</div></div>
+      <div><div class="n">2</div><div class="l">Account created</div></div>
+      <div><div class="n">1</div><div class="l">Sisa target (dari 5)</div></div>
+      <div><div class="n">8</div><div class="l">POI di hub</div></div>
+      <div><div class="n">3</div><div class="l">Titik rekomendasi</div></div>
+    </div>
+  </section>
+
+  <footer>Rute Harian · SPG Personal Dashboard · runbook demo · minggu 14–20 Sep 2026</footer>
+</div>
+
+<script>
+// Checklist state is a convenience for the person running the demo on this device only.
+(function () {
+  var KEY = 'rute-harian-demo-prep';
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#prep input[type=checkbox]'));
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
+  boxes.forEach(function (b) {
+    if (saved[b.id]) b.checked = true;
+    b.addEventListener('change', function () {
+      var out = {};
+      boxes.forEach(function (x) { if (x.checked) out[x.id] = 1; });
+      try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) { /* private window — fine */ }
+    });
+  });
+})();
+</script>

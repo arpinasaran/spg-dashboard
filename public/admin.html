@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papan Pengawas · Rute Harian</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- styles.css is linked for its colour tokens only; admin.css re-lays the page for a desk. -->
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/admin.css">
+</head>
+<body class="admin">
+
+<header class="abar">
+  <div class="abar-id">
+    <h1>Papan Pengawas</h1>
+    <span class="abar-sub">Rute Harian · kehadiran &amp; tinjauan lapangan</span>
+  </div>
+  <div class="abar-right">
+    <div class="demo-badge" id="demoBadge" hidden></div>
+    <div class="freshness" id="freshness">Memuat…</div>
+    <button class="btn btn-quiet" id="refreshBtn" type="button">Perbarui</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="tiles" id="tiles" aria-label="Ringkasan hari ini">
+    <div class="tile tile-skeleton"></div>
+    <div class="tile tile-skeleton"></div>
+    <div class="tile tile-skeleton"></div>
+    <div class="tile tile-skeleton"></div>
+  </section>
+
+  <section class="controls" aria-label="Penyaring">
+    <div class="ctl ctl-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search" type="search" placeholder="Cari nama atau OpsID…" autocomplete="off">
+    </div>
+    <label class="ctl">
+      <span class="ctl-label">Region</span>
+      <select id="regionFilter"><option value="">Semua region</option></select>
+    </label>
+    <label class="ctl">
+      <span class="ctl-label">CF</span>
+      <select id="cfFilter"><option value="">Semua CF</option></select>
+    </label>
+    <label class="toggle">
+      <input type="checkbox" id="onlyReview">
+      <span>Hanya yang perlu ditinjau</span>
+    </label>
+    <span class="rowcount" id="rowCount"></span>
+  </section>
+
+  <section class="board-shell">
+    <div class="board-scroll" id="boardScroll">
+      <table class="board" id="board">
+        <thead id="boardHead"></thead>
+        <tbody id="boardBody"></tbody>
+      </table>
+    </div>
+    <p class="board-empty" id="boardEmpty" hidden></p>
+  </section>
+
+  <section class="legend" aria-label="Keterangan warna">
+    <span class="lg"><i class="sw s-ok"></i>Hadir</span>
+    <span class="lg"><i class="sw s-late"></i>Telat masuk</span>
+    <span class="lg"><i class="sw s-open"></i>Masih di lapangan</span>
+    <span class="lg"><i class="sw s-unfinished"></i>Tak ada absen pulang</span>
+    <span class="lg"><i class="sw s-review"></i>Perlu ditinjau</span>
+    <span class="lg"><i class="sw s-approved"></i>Disahkan</span>
+    <span class="lg"><i class="sw s-rejected"></i>Ditolak</span>
+    <span class="lg"><i class="sw s-none"></i>Tidak absen</span>
+    <span class="lg"><i class="sw s-rest"></i>Minggu</span>
+  </section>
+
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="drawer" id="drawer" hidden aria-label="Rincian sesi">
+  <div class="drawer-inner" id="drawerInner"></div>
+</aside>
+
+<script src="/admin.js"></script>
+</body>
+</html>

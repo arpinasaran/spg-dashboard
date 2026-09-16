@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rute Harian</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-mark" id="brandGreeting">Memuat…</span>
+      <span class="brand-sub" id="brandSub">Rute Harian</span>
+    </div>
+    <div class="citychip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/></svg>
+      <span id="cityLabel">…</span>
+    </div>
+  </div>
+
+  <div id="loadError"><span id="loadErrorText">Tidak bisa terhubung ke server data.</span></div>
+  <div id="offlineBanner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 9a16 16 0 0 1 22 0M5 13a10.5 10.5 0 0 1 14 0M8.5 17a5 5 0 0 1 7 0"/><line x1="2" y1="2" x2="22" y2="22"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg>
+    <span>Sedang offline — data absen tersimpan di perangkat dan akan disinkronkan otomatis.</span>
+  </div>
+
+  <div class="freshbar" id="freshBar" hidden>
+    <span class="freshdot" id="freshDot"></span>
+    <span id="freshText">Memuat data…</span>
+    <button class="freshbtn" id="btnRefresh" data-action="refresh-data" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+      <span id="freshBtnLabel">Perbarui</span>
+    </button>
+  </div>
+
+  <!-- ================= HOME ================= -->
+  <section class="panel active" id="panel-home">
+    <div class="daycard" id="ticket">
+      <div class="daycard-head">
+        <span class="daystatus st-neutral" id="ticketStamp">Belum Absen</span>
+        <span class="daycard-date" id="ticketMeta">…</span>
+      </div>
+      <div class="daycard-headline" id="ticketHeadline">Siap mulai bertugas?</div>
+      <div class="daycard-sub" id="ticketNote"></div>
+      <button class="btn btn-primary" id="btnPrimaryAction" data-action="open-sheet" data-target="sheetClockIn" disabled>Memuat…</button>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <h2 class="section-title">Ringkasan KPI</h2>
+        <button class="linklike" data-action="goto-tab" data-tab="kpi">Detail</button>
+      </div>
+      <div class="kpi-strip" id="kpiStrip"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <h2 class="section-title">Titik rekomendasi hari ini</h2>
+        <span class="section-hint" id="checkpointHint">…</span>
+      </div>
+      <div class="rowlist" id="checkpointList"></div>
+    </div>
+  </section>
+
+  <!-- ================= POI ================= -->
+  <section class="panel" id="panel-poi">
+    <h1 style="font-size:20px;margin-bottom:14px;" id="poiHeading">Titik POI</h1>
+    <div class="searchbar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></svg>
+      <input type="text" id="poiSearch" placeholder="Cari nama tempat…" autocomplete="off">
+    </div>
+    <div class="chiprow" id="poiFilterChips"></div>
+    <div class="rowlist" id="poiList"></div>
+
+    <div class="fab-row">
+      <button class="btn btn-ghost" data-action="open-sheet" data-target="sheetPropose">+ Usulkan POI baru</button>
+    </div>
+
+    <div class="section" id="proposalsSection" style="display:none;">
+      <div class="section-head"><h2 class="section-title">Usulan saya</h2></div>
+      <div class="rowlist" id="proposalsList"></div>
+    </div>
+  </section>
+
+  <!-- ================= RIWAYAT ================= -->
+  <section class="panel" id="panel-riwayat">
+    <h1 style="font-size:20px;margin-bottom:4px;">Riwayat 14 hari terakhir</h1>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;">Ketuk satu hari untuk melihat detailnya.</p>
+    <div id="historyEmpty" style="display:none;text-align:center;padding:40px 16px;color:var(--ink-soft);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="width:30px;height:30px;margin-bottom:10px;"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+      <p style="font-size:14px;font-weight:600;color:var(--ink);margin:0 0 4px;">Belum ada riwayat absen</p>
+      <p style="font-size:12.5px;margin:0;">Riwayat akan muncul di sini setelah absen pertama.</p>
+    </div>
+    <div class="rowlist" id="historyList"></div>
+  </section>
+
+  <!-- ================= KPI ================= -->
+  <section class="panel" id="panel-kpi">
+    <div class="identity-strip">
+      <div class="avatar" id="kpiAvatar">…</div>
+      <div>
+        <div class="identity-name" id="kpiIdentityName">Memuat…</div>
+        <div class="identity-sub" id="kpiIdentitySub"></div>
+      </div>
+    </div>
+    <div class="section-head" style="margin-bottom:8px;">
+      <h2 class="section-title" id="kpiBatchLabel">Minggu berjalan</h2>
+    </div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+  </section>
+</div>
+
+<div class="tabbar"><div class="app-frame">
+  <button class="navbtn active" data-action="goto-tab" data-tab="home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+    <span>Beranda</span>
+  </button>
+  <button class="navbtn" data-action="goto-tab" data-tab="poi">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/></svg>
+    <span>POI</span>
+  </button>
+  <button class="navbtn" data-action="goto-tab" data-tab="riwayat">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+    <span>Riwayat</span>
+  </button>
+  <button class="navbtn" data-action="goto-tab" data-tab="kpi">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+    <span>KPI</span>
+  </button>
+</div></div>
+
+<div class="backdrop" id="backdrop" data-action="close-sheets"></div>
+
+<!-- ===== Clock-in sheet ===== -->
+<div class="sheet" id="sheetClockIn" data-step="1" data-flow="in">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div>
+      <h3>Absen Masuk</h3>
+      <div class="sheet-step-label" data-step-label>Langkah 1 dari 3 · Pilih lokasi</div>
+    </div>
+    <button class="iconbtn" data-action="close-sheet" data-target="sheetClockIn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+  </div>
+  <div class="sheet-body">
+    <div class="dots"><span class="dot done"></span><span class="dot"></span><span class="dot"></span></div>
+
+    <div class="step active" data-step-index="1">
+      <div id="inLocationOptions"></div>
+      <label class="optrow" id="inOtherRow">
+        <input type="radio" name="inLocation" value="other">
+        <span><span class="ot-title">Lokasi lain</span><span class="ot-sub">Isi alasan singkat.</span></span>
+      </label>
+      <div class="field" id="inOtherNoteField" style="display:none;">
+        <label for="inOtherNote">Alasan lokasi lain</label>
+        <textarea id="inOtherNote" placeholder="Contoh: Titik rekomendasi tutup sementara, pindah ke depan minimarket sebelah."></textarea>
+      </div>
+    </div>
+
+    <div class="step" data-step-index="2">
+      <div class="gpscard" id="inGpsCard"></div>
+    </div>
+
+    <div class="step" data-step-index="3">
+      <div class="camwrap" id="inCamWrap">
+        <div class="camplaceholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7 10 4h4l2 3"/><circle cx="12" cy="13.5" r="3.5"/></svg>Kamera belum aktif</div>
+      </div>
+      <div class="camnote" id="inCamNote">Foto diambil langsung dari kamera — tidak bisa unggah dari galeri.</div>
+      <div class="camactions">
+        <button class="btn btn-ghost" id="inCamStart" data-action="start-cam" data-target="in">Aktifkan kamera</button>
+      </div>
+    </div>
+  </div>
+  <div class="sheet-footer">
+    <button class="btn btn-ghost" id="inBack" data-action="sheet-back" data-target="sheetClockIn" style="display:none;">Kembali</button>
+    <button class="btn btn-primary" id="inNext" data-action="sheet-next" data-target="sheetClockIn" disabled>Lanjut</button>
+  </div>
+</div>
+
+<!-- ===== Clock-out sheet ===== -->
+<div class="sheet" id="sheetClockOut" data-step="1" data-flow="out">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div>
+      <h3>Absen Pulang</h3>
+      <div class="sheet-step-label" data-step-label>Langkah 1 dari 4 · Pilih lokasi</div>
+    </div>
+    <button class="iconbtn" data-action="close-sheet" data-target="sheetClockOut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+  </div>
+  <div class="sheet-body">
+    <div class="dots"><span class="dot done"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+
+    <div class="step active" data-step-index="1">
+      <p style="font-size:12.5px;color:var(--ink-soft);margin-top:0;">Lokasi absen pulang harus berbeda dari lokasi absen masuk.</p>
+      <div id="outLocationOptions"></div>
+      <label class="optrow" id="outOtherRow">
+        <input type="radio" name="outLocation" value="other">
+        <span><span class="ot-title">Lokasi lain</span><span class="ot-sub">Isi alasan singkat.</span></span>
+      </label>
+      <div class="field" id="outOtherNoteField" style="display:none;">
+        <label for="outOtherNote">Alasan lokasi lain</label>
+        <textarea id="outOtherNote" placeholder="Contoh: Menutup hari di titik tambahan dekat rumah."></textarea>
+      </div>
+    </div>
+
+    <div class="step" data-step-index="2">
+      <div class="gpscard" id="outGpsCard"></div>
+    </div>
+
+    <div class="step" data-step-index="3">
+      <div class="camwrap" id="outCamWrap">
+        <div class="camplaceholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7 10 4h4l2 3"/><circle cx="12" cy="13.5" r="3.5"/></svg>Kamera belum aktif</div>
+      </div>
+      <div class="camnote">Foto diambil langsung dari kamera — tidak bisa unggah dari galeri.</div>
+      <div class="camactions">
+        <button class="btn btn-ghost" id="outCamStart" data-action="start-cam" data-target="out">Aktifkan kamera</button>
+      </div>
+    </div>
+
+    <div class="step" data-step-index="4">
+      <div class="result-opts">
+        <label class="optrow" data-result="done"><input type="radio" name="actResult" value="done"><span><span class="ot-title">Aktivitas selesai</span><span class="ot-sub">Kunjungan berjalan normal, tidak ada kendala.</span></span></label>
+        <label class="optrow" data-result="issue"><input type="radio" name="actResult" value="issue"><span><span class="ot-title">Ada kendala</span><span class="ot-sub">Contoh: lokasi tutup, cuaca buruk, akses sulit.</span></span></label>
+      </div>
+      <div class="field" id="issueNoteField" style="display:none;">
+        <label for="issueNote">Catatan kendala</label>
+        <textarea id="issueNote" placeholder="Ceritakan singkat kendala yang dialami."></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="sheet-footer">
+    <button class="btn btn-ghost" id="outBack" data-action="sheet-back" data-target="sheetClockOut" style="display:none;">Kembali</button>
+    <button class="btn btn-primary" id="outNext" data-action="sheet-next" data-target="sheetClockOut" disabled>Lanjut</button>
+  </div>
+</div>
+
+<!-- ===== Propose POI sheet ===== -->
+<div class="sheet" id="sheetPropose">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <h3>Usulkan POI baru</h3>
+    <button class="iconbtn" data-action="close-sheet" data-target="sheetPropose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+  </div>
+  <div class="sheet-body">
+    <div class="field">
+      <label for="propName">Nama tempat</label>
+      <input type="text" id="propName" placeholder="Contoh: Pasar Kebayoran Lama">
+    </div>
+    <div class="field">
+      <label for="propCategory">Kategori</label>
+      <select id="propCategory">
+        <option>Transportasi</option><option>Pasar</option><option>Pusat Perbelanjaan</option><option>Kampus</option><option>Perkantoran</option><option>Lainnya</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="propMaps">Tautan Google Maps</label>
+      <input type="text" id="propMaps" placeholder="Tempel tautan dari tombol Bagikan di Google Maps">
+      <div class="hint">Buka lokasi di Google Maps → ketuk Bagikan → Salin tautan → tempel di sini.</div>
+    </div>
+    <div class="field">
+      <label for="propNote">Catatan (opsional)</label>
+      <textarea id="propNote" placeholder="Info tambahan buat CF, misal jam ramai."></textarea>
+    </div>
+    <label class="check-row" style="margin-bottom:6px;"><input type="checkbox" id="propGps">Sertakan lokasi perangkat saat ini</label>
+  </div>
+  <div class="sheet-footer">
+    <button class="btn btn-primary" data-action="submit-proposal">Kirim usulan</button>
+  </div>
+</div>
+
+<!-- ===== History detail sheet ===== -->
+<div class="sheet" id="sheetHistoryDetail">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <h3 id="histDetailTitle">Detail hari</h3>
+    <button class="iconbtn" data-action="close-sheet" data-target="sheetHistoryDetail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+  </div>
+  <div class="sheet-body" id="histDetailBody"></div>
+  <div class="sheet-footer"><button class="btn btn-ghost" data-action="close-sheet" data-target="sheetHistoryDetail">Tutup</button></div>
+</div>
+
+<div class="toastwrap"><div class="toast" id="toast"></div></div>
+
+<script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "rute-harian-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SPG Personal Dashboard (Rute Harian) — local Node app, reads/writes real Google Sheets via gws",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
