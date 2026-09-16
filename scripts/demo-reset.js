@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { valuesUpdate } = require('../lib/gwsClient');
+const { valuesUpdate } = require('../lib/sheetsClient');
 const attendance = require('../lib/attendance');
 const config = require('../config');
 

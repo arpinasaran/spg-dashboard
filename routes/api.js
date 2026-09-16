@@ -172,10 +172,10 @@ router.post('/poi-proposals', wrap(async (req, res) => {
    image the browser can load, pulling it down from Drive on first miss — which is what lets
    the board show evidence on a machine that never took the photo. */
 router.get('/photo/:ref', wrap(async (req, res) => {
-  const file = await photoStore.resolve(req.params.ref);
-  if (!file) return res.status(404).json({ error: 'Foto tidak ditemukan' });
+  const image = await photoStore.fetch(req.params.ref);
+  if (!image) return res.status(404).json({ error: 'Foto tidak ditemukan' });
   res.set('Cache-Control', 'private, max-age=86400'); // evidence is immutable once written
-  res.sendFile(file);
+  res.type(image.contentType).send(image.buffer);
 }, 404));
 
 router.get('/attendance/session/:sessionId', wrap(async (req, res) => {

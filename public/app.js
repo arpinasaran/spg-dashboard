@@ -592,11 +592,22 @@ function renderCamCapture(flow) {
   btn.onclick = () => capturePhoto(flow);
   actions.appendChild(btn);
 }
+/* Attendance photos are evidence that someone was standing somewhere, not photographs. A
+   phone camera hands us 12 megapixels of it, which becomes a multi-megabyte upload — over
+   field 4G that is the slowest part of clocking in, and base64 in a JSON body inflates it by
+   another third, far enough to run into the request size limit a serverless deployment
+   enforces. 1280px on the long side is still plainly legible on the supervisor's board. */
+const PHOTO_MAX_EDGE = 1280;
+
 function capturePhoto(flow) {
   const wrap = $(flow === 'in' ? '#inCamWrap' : '#outCamWrap');
   const video = wrap.querySelector('video');
+  const srcW = video.videoWidth || 480;
+  const srcH = video.videoHeight || 640;
+  const scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(srcW, srcH));
+
   const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth || 480; canvas.height = video.videoHeight || 640;
+  canvas.width = Math.round(srcW * scale); canvas.height = Math.round(srcH * scale);
   canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
   const url = canvas.toDataURL('image/jpeg', 0.7);
   stopCam(flow);

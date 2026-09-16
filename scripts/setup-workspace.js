@@ -8,7 +8,7 @@
 
 const config = require('../config');
 const proposals = require('../lib/poiProposals');
-const { listTabs, driveFindFolder, driveCreateFolder } = require('../lib/gwsClient');
+const { listTabs, driveFindFolder, driveCreateFolder } = require('../lib/sheetsClient');
 
 async function setupProposalsTab() {
   const before = await listTabs(config.sheets.poiMaster);

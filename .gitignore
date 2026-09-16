@@ -2,3 +2,6 @@ node_modules/
 data/
 server.log
 .DS_Store
+
+.env
+.vercel

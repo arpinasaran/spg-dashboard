@@ -2,13 +2,19 @@
   "name": "rute-harian-app",
   "version": "0.1.0",
   "private": true,
-  "description": "SPG Personal Dashboard (Rute Harian) — local Node app, reads/writes real Google Sheets via gws",
+  "description": "SPG Personal Dashboard (Rute Harian) — reads/writes real Google Sheets, runs locally or on Vercel",
   "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node server.js",
+    "sync": "node scripts/sync-snapshot.js",
     "test": "node --test"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "@vercel/functions": "^3.9.8",
+    "express": "^4.19.2",
+    "googleapis": "^181.0.0"
   }
 }
