@@ -33,7 +33,7 @@ app.get(['/', '/index.html'], (req, res) => {
     console.log('  Hard refresh — data akan dibaca ulang dari sumber.');
   }
   res.set('Cache-Control', 'no-cache'); // always revalidate, so this handler keeps seeing reloads
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'views', 'index.html'));
 });
 
 // The admin board is a separate desktop page, not a tab inside the SPG app: one is a
@@ -41,9 +41,22 @@ app.get(['/', '/index.html'], (req, res) => {
 // desk watching many people. Sharing a shell would have compromised both.
 app.get(['/admin', '/admin.html'], adminOnly, (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
+/* Only assets live in public/, and the split is load-bearing rather than tidiness.
+
+   Vercel publishes public/ to its CDN and matches those files *before* the rewrite that
+   sends everything else to this app. Anything in there is therefore served without Express
+   ever running — which, while the two pages lived in public/, meant /index.html and
+   /admin.html answered 200 to a signed-out stranger. The gate above them never ran; only
+   the extensionless /admin and / were ever protected.
+
+   No data escaped that way, since every number arrives from /api and those routes are gated
+   independently. But the admin shell was readable by anyone who guessed the filename, and
+   an SPG landing on /index.html got a dashboard that could not load rather than a login
+   screen. Keeping the HTML out of public/ is what makes the gate cover the pages too; the
+   CSS and JS stay behind, where the CDN is a straight win and there is nothing to protect. */
 app.use(express.static(path.join(__dirname, 'public')));
 
 module.exports = app;
