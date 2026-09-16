@@ -23,6 +23,11 @@
 
    Run it before a demo, or on a schedule (Task Scheduler / cron) to keep the numbers moving. */
 
+// Credentials come from a local .env — see lib/env.js. Loaded before the two assignments
+// below so that they still win: whatever a .env happens to say about drivers, this script
+// reads as the human and writes as the service account, and nothing else makes sense.
+require('../lib/env').load();
+
 // Read as the signed-in human, write to the folder the service account can reach. Both must
 // be set before anything below requires lib/store.js or lib/sheetsClient.js, since each
 // resolves its driver once.
@@ -43,7 +48,7 @@ function requireEnv() {
   const missing = ['GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GOOGLE_PRIVATE_KEY'].filter(k => !process.env[k]);
   if (missing.length) {
     console.error(`Butuh ${missing.join(' dan ')} supaya snapshot bisa ditulis ke Drive.`);
-    console.error('Isi .env lokal dengan kredensial service account yang sama seperti di Vercel.');
+    console.error('Cara tercepat: `vercel env pull .env` — isinya jadi sama persis dengan produksi.');
     process.exit(1);
   }
 }

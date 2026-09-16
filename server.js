@@ -1,3 +1,8 @@
+// Before anything else: lib/sheetsClient.js and lib/store.js each pick their driver from the
+// environment the first time they are required, so a .env read afterwards would arrive too
+// late to change either.
+require('./lib/env').load();
+
 const app = require('./app');
 const config = require('./config');
 const auth = require('./lib/auth');

@@ -14,6 +14,8 @@
    spreadsheet is readable by a human later; if the roster cannot be reached the account is
    still created, just without a name. */
 
+require('../lib/env').load(); // see lib/env.js — must precede the driver-resolving requires
+
 const credentials = require('../lib/credentials');
 const roster = require('../lib/roster');
 const config = require('../config');
