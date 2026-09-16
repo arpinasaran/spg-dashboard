@@ -20,6 +20,9 @@ module.exports = {
     // of its own: an approved proposal becomes a POI Master row, and keeping both in one
     // spreadsheet makes that a copy across instead of a move between documents.
     poiProposalsTab: 'POI Proposals',
+    // Per-SPG password hashes, in the Attendance spreadsheet because that is the only file
+    // this app both owns and can write to from a deployment. See lib/credentials.js.
+    credentialsTab: 'SPG Credentials',
   },
 
   // Where attendance photos live. Previously data/photos/ and nowhere else, which meant the

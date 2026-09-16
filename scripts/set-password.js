@@ -1,0 +1,85 @@
+#!/usr/bin/env node
+/* Gives an SPG a password, or resets one.
+
+   There is no self-service sign-up on purpose. An account here is a claim that a particular
+   person's attendance rows are theirs, so somebody has to vouch for it — and the roster that
+   says who exists at all belongs to another team, which means this cannot be automated from
+   inside the app anyway.
+
+     node scripts/set-password.js OS212341              # generate and print one
+     node scripts/set-password.js OS212341 "sandi-nya"  # set a specific one
+     node scripts/set-password.js --list                # who has an account
+
+   Run it from a laptop with `gws` signed in. The name is filled in from the roster so the
+   spreadsheet is readable by a human later; if the roster cannot be reached the account is
+   still created, just without a name. */
+
+const credentials = require('../lib/credentials');
+const roster = require('../lib/roster');
+const config = require('../config');
+
+// No 0/O/1/l/I: these get written on paper, read aloud over the phone, and typed on a
+// phone keyboard in the field.
+const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+function generatePassword(length = 12) {
+  const bytes = require('crypto').randomBytes(length);
+  return [...bytes].map(b => ALPHABET[b % ALPHABET.length]).join('');
+}
+
+async function lookupName(opsId) {
+  try {
+    const all = await roster.getRoster();
+    const hit = all.find(r => String(r.opsId).toUpperCase() === opsId.toUpperCase());
+    return hit ? hit.name : '';
+  } catch (err) {
+    console.error(`  (nama tidak bisa dibaca dari roster: ${err.message})`);
+    return '';
+  }
+}
+
+async function list() {
+  const accounts = await credentials.list();
+  if (!accounts.length) {
+    console.log(`Belum ada akun di tab "${credentials.TAB}".`);
+    return;
+  }
+  console.log(`${accounts.length} akun di tab "${credentials.TAB}":\n`);
+  for (const a of accounts) {
+    const last = a.lastLogin ? a.lastLogin.slice(0, 16).replace('T', ' ') : 'belum pernah';
+    console.log(`  ${a.opsId.padEnd(12)} ${(a.name || '-').padEnd(28)} login terakhir: ${last}`);
+  }
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+
+  if (args.includes('--list') || args.includes('-l')) return list();
+
+  const opsId = (args[0] || '').trim();
+  if (!opsId) {
+    console.error('Pakai: node scripts/set-password.js <OpsID> [kata-sandi]');
+    console.error('       node scripts/set-password.js --list');
+    process.exit(1);
+  }
+
+  const supplied = args[1];
+  const password = supplied || generatePassword();
+  const name = await lookupName(opsId);
+
+  const { created } = await credentials.setPassword(opsId, name, password);
+
+  console.log(`\n${created ? 'Akun dibuat' : 'Kata sandi diganti'} untuk ${opsId}${name ? ` (${name})` : ''}.`);
+  if (!supplied) {
+    console.log(`\n  Kata sandi: ${password}\n`);
+    console.log('Catat sekarang — yang tersimpan di sheet hanya hash-nya, jadi ini tidak bisa');
+    console.log('dilihat lagi. Kalau hilang, jalankan perintah ini sekali lagi.');
+  }
+  console.log(`\nTersimpan di "${credentials.TAB}" pada spreadsheet Attendance (${config.sheets.attendanceDb}).`);
+  console.log('Supaya login-nya aktif, deployment harus punya AUTH_MODE=spg dan SESSION_SECRET.');
+}
+
+main().catch((err) => {
+  console.error(`\nGagal: ${err.message}`);
+  process.exit(1);
+});

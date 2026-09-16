@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const { router, markHardReload } = require('./routes/api');
 const { router: adminRouter } = require('./routes/admin');
-const { router: loginRouter, gate } = require('./routes/login');
+const { router: loginRouter, gate, adminOnly } = require('./routes/login');
 
 /* The Express app, with no opinion about how it is served.
 
@@ -20,7 +20,7 @@ app.use(loginRouter);
 app.use(gate);
 
 app.use('/api', router);
-app.use('/api/admin', adminRouter);
+app.use('/api/admin', adminOnly, adminRouter);
 
 // Ctrl+Shift+R is the only reload where the browser explicitly asks everyone to ignore their
 // caches — it sends no-cache on the document request. Passing that intent through to our own
@@ -29,7 +29,7 @@ app.use('/api/admin', adminRouter);
 app.get(['/', '/index.html'], (req, res) => {
   const hint = `${req.headers['cache-control'] || ''} ${req.headers.pragma || ''}`;
   if (/no-cache/i.test(hint)) {
-    markHardReload();
+    markHardReload(req.spgOpsId);
     console.log('  Hard refresh — data akan dibaca ulang dari sumber.');
   }
   res.set('Cache-Control', 'no-cache'); // always revalidate, so this handler keeps seeing reloads
@@ -39,7 +39,7 @@ app.get(['/', '/index.html'], (req, res) => {
 // The admin board is a separate desktop page, not a tab inside the SPG app: one is a
 // mobile-first tool for the person in the field, the other is a wide grid for someone at a
 // desk watching many people. Sharing a shell would have compromised both.
-app.get(['/admin', '/admin.html'], (req, res) => {
+app.get(['/admin', '/admin.html'], adminOnly, (req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });

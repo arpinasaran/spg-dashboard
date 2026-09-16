@@ -26,8 +26,10 @@ function meta(c) {
 // One call instead of five. Each of the old endpoints resolved identity first, so a cold
 // page load fanned out into five parallel requests that each waited on the same lookup;
 // now the page asks once and gets everything it needs to render.
-async function bootstrap() {
-  const me = await identity.getIdentity();
+// opsId defaults to the configured SPG so server.js's pre-warm, which has no request to read
+// it from, keeps working exactly as before.
+async function bootstrap(opsId = config.spg.opsId) {
+  const me = await identity.getIdentity(opsId);
   const [pois, weekly, today, history, myProposals] = await Promise.all([
     poi.getPoisForHub(me.hub),
     kpi.getWeeklyKpi(me.fmsId),
@@ -83,8 +85,8 @@ async function proposalCategories(hub) {
 
 // Forces the named datasets past their TTL and waits for the real read — used wherever the
 // person at the keyboard explicitly asked for current numbers and is prepared to wait.
-async function refreshCaches(scope = 'all') {
-  const me = await identity.getIdentity();
+async function refreshCaches(scope = 'all', opsId = config.spg.opsId) {
+  const me = await identity.getIdentity(opsId);
   const jobs = [];
   if (scope === 'all' || scope === 'kpi') jobs.push(kpi.kpiCache(me.fmsId).refresh());
   if (scope === 'all' || scope === 'poi') jobs.push(poi.poiCache(me.hub).refresh());
@@ -102,44 +104,46 @@ async function refreshCaches(scope = 'all') {
 // what you have cached". server.js spots that on the document request and flags it here, so
 // the bootstrap that immediately follows re-reads the sheets instead of serving the snapshot.
 // A normal reload still gets the fast cached path.
-let hardReloadPending = false;
-function markHardReload() { hardReloadPending = true; }
+//
+// Kept per SPG rather than as one flag: with everyone sharing an instance, a single global
+// would let one person's hard refresh spend someone else's next page load on a slow read.
+const hardReloadPending = new Set();
+function markHardReload(opsId = config.spg.opsId) { hardReloadPending.add(opsId); }
 
 router.get('/bootstrap', wrap(async (req, res) => {
-  if (hardReloadPending) {
-    hardReloadPending = false;
+  if (hardReloadPending.delete(req.spgOpsId)) {
     // A failed forced read must not block the page — fall through to the cached copy.
-    try { await refreshCaches('all'); } catch (err) { console.error('Refresh paksa gagal:', err.message); }
+    try { await refreshCaches('all', req.spgOpsId); } catch (err) { console.error('Refresh paksa gagal:', err.message); }
   }
-  res.json(await bootstrap());
+  res.json(await bootstrap(req.spgOpsId));
 }));
 
 router.post('/refresh', wrap(async (req, res) => {
-  await refreshCaches((req.body && req.body.scope) || 'all');
-  res.json(await bootstrap());
+  await refreshCaches((req.body && req.body.scope) || 'all', req.spgOpsId);
+  res.json(await bootstrap(req.spgOpsId));
 }));
 
 router.get('/me', wrap(async (req, res) => {
-  res.json(await identity.getIdentity());
+  res.json(await identity.getIdentity(req.spgOpsId));
 }));
 
 router.get('/poi', wrap(async (req, res) => {
-  const me = await identity.getIdentity();
+  const me = await identity.getIdentity(req.spgOpsId);
   res.json(await poi.getPoisForHub(me.hub));
 }));
 
 router.get('/kpi', wrap(async (req, res) => {
-  const me = await identity.getIdentity();
+  const me = await identity.getIdentity(req.spgOpsId);
   res.json(await kpi.getWeeklyKpi(me.fmsId));
 }));
 
 router.get('/attendance/today', wrap(async (req, res) => {
-  const me = await identity.getIdentity();
+  const me = await identity.getIdentity(req.spgOpsId);
   res.json(await attendance.getToday(me.opsId));
 }));
 
 router.get('/attendance/history', wrap(async (req, res) => {
-  const me = await identity.getIdentity();
+  const me = await identity.getIdentity(req.spgOpsId);
   res.json(await attendance.getHistory(me.opsId, 14));
 }));
 
@@ -149,7 +153,7 @@ router.get('/attendance/history', wrap(async (req, res) => {
    "POI Proposals" tab of the POI Master spreadsheet, where a CF can actually see them. */
 
 router.get('/poi-proposals', wrap(async (req, res) => {
-  const me = await identity.getIdentity();
+  const me = await identity.getIdentity(req.spgOpsId);
   res.json({
     proposals: await proposals.getForSpg(me.opsId),
     categories: await proposalCategories(me.hub),
@@ -157,7 +161,7 @@ router.get('/poi-proposals', wrap(async (req, res) => {
 }));
 
 router.post('/poi-proposals', wrap(async (req, res) => {
-  const me = await identity.getIdentity();
+  const me = await identity.getIdentity(req.spgOpsId);
   const b = req.body || {};
   const created = await proposals.create({
     opsId: me.opsId, spgName: me.name, hub: me.hub, city: me.city, region: me.region,
@@ -179,18 +183,18 @@ router.get('/photo/:ref', wrap(async (req, res) => {
 }, 404));
 
 router.get('/attendance/session/:sessionId', wrap(async (req, res) => {
-  const me = await identity.getIdentity();
+  const me = await identity.getIdentity(req.spgOpsId);
   res.json(await attendance.getSessionDetail(me.opsId, req.params.sessionId));
 }));
 
 router.post('/attendance/clock-in', wrap(async (req, res) => {
-  const me = await identity.getIdentity();
+  const me = await identity.getIdentity(req.spgOpsId);
   const result = await attendance.clockIn({ opsId: me.opsId, spgName: me.name, ...req.body });
   res.json({ ...result, today: await attendance.getToday(me.opsId), history: await attendance.getHistory(me.opsId, 14) });
 }, 400));
 
 router.post('/attendance/clock-out', wrap(async (req, res) => {
-  const me = await identity.getIdentity();
+  const me = await identity.getIdentity(req.spgOpsId);
   const result = await attendance.clockOut({ opsId: me.opsId, ...req.body });
   res.json({ ...result, today: await attendance.getToday(me.opsId), history: await attendance.getHistory(me.opsId, 14) });
 }, 400));

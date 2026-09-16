@@ -6,17 +6,18 @@
    A service account is a separate identity and cannot be given access to them without those
    teams agreeing, so a deployed instance never reads them. It reads a snapshot instead.
 
-   This script is the thing that produces that snapshot. It runs where the access already
-   exists — a laptop with `gws` signed in as a person who can open all five — reads through
-   exactly the same loaders the app uses, and writes the result to the Drive folder the
-   service account *can* see. Nothing here is a parallel implementation of the app's logic;
-   forcing cache.refresh() means the snapshot is by construction the same shape the app would
-   have produced itself.
+   This script produces that snapshot. It runs where the access already exists — a laptop
+   with `gws` signed in as someone who can open all five — and writes the result to the Drive
+   folder the service account *can* see.
 
    What stays live on the deployment, needing no snapshot: attendance. The Attendance
    spreadsheet and the photos folder are yours to share, so clock-in and clock-out write
-   straight to the real sheet. The slow, read-only data is what goes stale, and the app
-   already tells the user how old it is.
+   straight to the real sheet. Only the slow, read-only data goes stale, and the app already
+   tells the user how old it is.
+
+   Scope is every SPG with an account (lib/credentials.js), not every SPG in the roster —
+   snapshotting 4000 people to serve 20 would be absurd. Give someone an account with
+   scripts/set-password.js and the next sync starts covering them.
 
      npm run sync
 
@@ -31,6 +32,7 @@ process.env.STORE_DRIVER = 'drive';
 const config = require('../config');
 const { flush } = require('../lib/background');
 const store = require('../lib/store');
+const credentials = require('../lib/credentials');
 const identity = require('../lib/identity');
 const poi = require('../lib/poi');
 const kpi = require('../lib/kpi');
@@ -46,6 +48,8 @@ function requireEnv() {
   }
 }
 
+let failures = 0;
+
 async function step(label, run) {
   const t = Date.now();
   try {
@@ -54,43 +58,73 @@ async function step(label, run) {
     return true;
   } catch (err) {
     console.error(`  ✗ ${label} — ${err.message}`);
+    failures++;
     return false;
   }
+}
+
+/* Whose data to push. Anyone with an account, plus the configured SPG so a deployment that
+   has not issued a single password yet still has something to show. */
+async function targetOpsIds() {
+  const accounts = await credentials.list().catch((err) => {
+    console.error(`  (daftar akun tidak terbaca: ${err.message} — memakai config.spg saja)`);
+    return [];
+  });
+  const ids = new Set(accounts.map(a => a.opsId));
+  ids.add(config.spg.opsId);
+  return [...ids];
 }
 
 async function main() {
   requireEnv();
 
-  const opsId = config.spg.opsId;
-  console.log(`Menyiapkan snapshot untuk OpsID ${opsId}`);
+  const opsIds = await targetOpsIds();
+  console.log(`Menyiapkan snapshot untuk ${opsIds.length} SPG: ${opsIds.join(', ')}`);
   console.log(`  Tujuan: folder Drive ${process.env.SNAPSHOT_FOLDER_ID || config.drive.photosFolderId}\n`);
 
-  const results = [];
+  // Identities first, in one read, because the hub and FMSID they resolve are what the POI
+  // and KPI work below is keyed by.
+  let people = [];
+  await step('Identitas', async () => {
+    const batch = await identity.loadIdentityBatch(opsIds);
+    for (const [opsId, me] of Object.entries(batch)) {
+      if (me.error) {
+        console.error(`    · ${opsId} dilewati — ${me.error}`);
+        continue;
+      }
+      identity.identityCache(opsId).set(me);
+      people.push(me);
+    }
+    return `${people.length}/${opsIds.length} terbaca`;
+  });
 
-  // Identity first and awaited alone: the POI and KPI reads need the hub and FMSID it
-  // resolves, so there is nothing to parallelise until it lands.
-  let me = null;
-  results.push(await step('Identitas SPG', async () => {
-    const { data } = await identity.identityCache(opsId).refresh();
-    me = data;
-    return `${data.name} · ${data.hub}`;
-  }));
-
-  if (!me) {
-    console.error('\nIdentitas gagal dibaca, jadi POI dan KPI tidak bisa diambil. Berhenti.');
+  if (!people.length) {
+    console.error('\nTidak ada identitas yang terbaca, jadi POI dan KPI tidak bisa diambil. Berhenti.');
     await flush();
     process.exit(1);
   }
 
-  results.push(...await Promise.all([
-    step('Daftar POI', async () => {
-      const { data } = await poi.poiCache(me.hub).refresh();
+  const hubs = [...new Set(people.map(p => p.hub).filter(Boolean))];
+  const fmsIds = [...new Set(people.map(p => p.fmsId).filter(Boolean))];
+
+  // One pass over the 184k-row pipeline answers for everybody; set() writes each SPG's
+  // snapshot from it without a second read.
+  await step(`KPI mingguan (${fmsIds.length} SPG)`, async () => {
+    const batch = await kpi.loadKpiBatch(fmsIds);
+    for (const [fmsId, data] of Object.entries(batch)) kpi.kpiCache(fmsId).set(data);
+    return `${Object.keys(batch).length} snapshot dari 1 pembacaan`;
+  });
+
+  // POI is per hub, not per person, so hubs are deduplicated: a hub with eight SPGs on it is
+  // still read once.
+  for (const hub of hubs) {
+    await step(`POI ${hub}`, async () => {
+      const { data } = await poi.poiCache(hub).refresh();
       return `${data.length} POI`;
-    }),
-    step('KPI mingguan', async () => {
-      const { data } = await kpi.kpiCache(me.fmsId).refresh();
-      return `${data.onboarded}/${data.target} onboarded`;
-    }),
+    });
+  }
+
+  await Promise.all([
     step('Roster (papan admin)', async () => {
       const { data } = await roster.rosterCache().refresh();
       return `${data.length} SPG`;
@@ -106,18 +140,16 @@ async function main() {
       const { data } = await proposals.proposalsCache().refresh();
       return `${data.length} usulan`;
     }),
-  ]));
+  ]);
 
   // The writes above are fire-and-forget by design (lib/cache.js). Exiting without waiting
   // would leave the snapshot half-written, which is worse than not running at all.
   await flush();
 
   const keys = await store.listKeys().catch(() => []);
-  const failed = results.filter(ok => !ok).length;
-
-  console.log(`\n${keys.length} snapshot ada di Drive: ${keys.join(', ')}`);
-  if (failed) {
-    console.error(`${failed} bagian gagal — yang lain tetap tersimpan. Perbaiki lalu jalankan ulang.`);
+  console.log(`\n${keys.length} snapshot ada di Drive.`);
+  if (failures) {
+    console.error(`${failures} bagian gagal — yang lain tetap tersimpan. Perbaiki lalu jalankan ulang.`);
     process.exit(1);
   }
   console.log('Selesai. Deployment akan membaca angka ini tanpa menunggu Sheets.');

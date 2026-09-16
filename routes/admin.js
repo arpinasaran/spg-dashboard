@@ -26,7 +26,12 @@ router.get('/session/:sessionId', wrap(async (req, res) => {
 
 router.post('/review', wrap(async (req, res) => {
   const { sessionId, decision, reason, reviewer } = req.body || {};
-  const result = await admin.review({ sessionId, decision, reason, reviewer });
+  // Who reviewed is part of the record, so it comes from the session rather than the request
+  // body wherever there is a session to take it from. A browser can claim anything; a signed
+  // cookie cannot. Falls back to the submitted name on a laptop, where nobody is logged in.
+  const result = await admin.review({
+    sessionId, decision, reason, reviewer: req.spgOpsId || reviewer,
+  });
   res.json({ ...result, session: await admin.getSessionDetail(sessionId) });
 }, 400));
 
