@@ -123,7 +123,13 @@ router.post('/login', express.urlencoded({ extended: false }), async (req, res) 
 
   res.set('Set-Cookie', auth.cookieHeader(auth.issue(authenticated), { secure: isHttps(req) }));
   credentials.recordLogin(authenticated); // best-effort, deliberately not awaited
-  res.redirect('/');
+
+  /* Supervisors land on their own board. An account can exist purely to watch the board —
+     it needs no roster row, because nothing on that page asks who the viewer is beyond the
+     allowlist check. The SPG dashboard does ask: it resolves the signed-in OpsID against
+     "SPG List LM" to find a name, a hub and an FMSID, and for a supervisor account there is
+     no such row. Sending everyone to / would greet exactly those accounts with an error. */
+  res.redirect(adminOpsIds().includes(authenticated.toUpperCase()) ? '/admin' : '/');
 });
 
 router.post('/logout', (req, res) => {

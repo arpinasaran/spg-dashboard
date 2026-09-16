@@ -74,7 +74,10 @@ module.exports = {
   // in the UI and are never written back to Sheets. Set false, or run the seed script with
   // --clear, to see only real data.
   admin: {
-    demoData: true,
+    // Off now that the board is deployed and a supervisor may actually read it. A synthetic
+    // row is labelled, but a board that is mostly synthetic invites being skimmed rather than
+    // read, and the one thing this page must never do is be wrong about a real person.
+    demoData: false,
     boardDays: 14,
   },
 

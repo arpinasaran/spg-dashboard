@@ -139,8 +139,8 @@ async function main() {
       return `${Object.keys(data).length} entri`;
     }),
     // Reading these needs "POI Master" too, so they are snapshotted for the same reason as
-    // the rest. Submitting a new one still cannot work online — see assertCanWriteProposals
-    // in lib/poiProposals.js.
+    // the rest. Submitting one is a separate question of write access, which lib/poiProposals.js
+    // settles by trying rather than by assuming.
     step('Usulan POI', async () => {
       const { data } = await proposals.proposalsCache().refresh();
       return `${data.length} usulan`;
