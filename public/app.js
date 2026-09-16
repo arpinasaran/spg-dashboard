@@ -15,7 +15,10 @@ let META = null;
 let RULES = { poiRadiusMeters: 250, lateAfterHour: 10, earlyBeforeHour: 16 };
 let CATS = ['Semua'];
 let poiFilter = 'Semua', poiQuery = '';
-const proposals = []; // not persisted yet — no "POI Proposals" sheet tab exists (deferred, see design notes)
+// Real rows from the "POI Proposals" tab of the POI Master spreadsheet. null means that tab
+// could not be read — which must not look the same on screen as "you haven't proposed any".
+let PROPOSALS = null;
+let PROPOSAL_CATEGORIES = null;
 
 const state = {
   attendance: 'not_started',
@@ -171,7 +174,9 @@ function applyTodayState(today) {
 /* ---------- checkpoints (home) ---------- */
 function renderCheckpoints() {
   const rec = POIS.filter(p => p.recommended);
-  $('#checkpointHint').textContent = `${rec.length} tersedia`;
+  // Says "dipilih acak" out loud: the rotation is a stand-in for FR-REC-04, and an SPG who
+  // sees a different three tomorrow should know that's the app rotating, not a CF deciding.
+  $('#checkpointHint').textContent = `${rec.length} dipilih acak hari ini`;
   $('#checkpointList').innerHTML = rec.map(p => {
     const isIn = state.clockInPOI === p.id, isOut = state.clockOutPOI === p.id;
     const tag = isIn ? '<span class="chip" style="background:var(--verified-bg);color:var(--verified);">Dipakai masuk</span>'
@@ -278,21 +283,47 @@ function renderPoiList() {
 }
 function renderProposals() {
   const sec = $('#proposalsSection');
-  sec.style.display = proposals.length ? 'block' : 'none';
-  $('#proposalsList').innerHTML = proposals.map(p => {
+  if (PROPOSALS === null) {
+    // The tab was unreachable. Saying nothing here would imply the SPG has never proposed
+    // anything, so the section stays visible and says what actually happened.
+    sec.style.display = 'block';
+    $('#proposalsList').innerHTML = `<p style="color:var(--ink-soft);font-size:13px;padding:12px 2px;">Daftar usulan belum bisa dibaca dari spreadsheet. Usulan yang sudah terkirim tetap tersimpan.</p>`;
+    return;
+  }
+  sec.style.display = PROPOSALS.length ? 'block' : 'none';
+  $('#proposalsList').innerHTML = PROPOSALS.map(p => {
     const cls = p.status === 'Disetujui' ? 'verified' : p.status === 'Ditolak' ? 'alert' : 'caution';
+    const when = p.submittedAt ? fmtDateShort(p.submittedAt.slice(0, 10)) : '';
     return `<div class="row">
       <div class="row-icon">${ICONS.pin}</div>
       <div class="row-main">
         <div class="row-title">${p.name}</div>
-        <div class="row-sub"><span class="chip">${p.cat}</span><span>${p.date}</span></div>
+        <div class="row-sub"><span class="chip">${p.category || '—'}</span><span>${when}</span></div>
       </div>
       <div class="row-action"><span class="statuschip ${cls}">${p.status}</span></div>
     </div>`;
   }).join('');
 }
 
+// The category list comes from POI Master's own vocabulary for this hub, so an approved
+// proposal drops into the master sheet without anyone renaming its category first.
+function renderProposalCategories() {
+  if (!PROPOSAL_CATEGORIES || !PROPOSAL_CATEGORIES.length) return;
+  const sel = $('#propCategory');
+  const keep = sel.value;
+  sel.innerHTML = PROPOSAL_CATEGORIES.map(c => `<option>${c}</option>`).join('');
+  if (PROPOSAL_CATEGORIES.includes(keep)) sel.value = keep;
+}
+
 /* ---------- history ---------- */
+// "Photo Reference" on a sheet row is a Drive file id ("drive:<id>"), not a URL. The server
+// turns one into an image — fetching it from Drive if this machine has never seen it — so
+// evidence taken on one device is viewable from another.
+function photoSrc(ref) {
+  if (!ref) return null;
+  return `/api/photo/${encodeURIComponent(ref)}`;
+}
+
 function classifySession(s) {
   if (s.reviewStatus === 'Rejected') return { cls: 'alert', label: 'Ditolak' };
   if (s.reviewStatus === 'Needs Review') return { cls: 'caution', label: 'Perlu Ditinjau' };
@@ -328,7 +359,7 @@ function openHistoryDetail(sessionId) {
   if (!h) return;
   const { cls, label } = classifySession(h);
   const inEv = h.events && h.events.in, outEv = h.events && h.events.out;
-  const photoUrl = (outEv && outEv.photoRef) || (inEv && inEv.photoRef) || null;
+  const photoUrl = photoSrc((outEv && outEv.photoRef) || (inEv && inEv.photoRef));
   $('#histDetailTitle').textContent = fmtDateLong(h.localDate);
   $('#histDetailBody').innerHTML = `
     <span class="statuschip ${cls}">${label}</span>
@@ -700,18 +731,43 @@ document.addEventListener('change', e => {
   }
 });
 
-function submitProposal() {
+async function submitProposal() {
+  const btn = $('[data-action="submit-proposal"]');
   const name = $('#propName').value.trim();
   const maps = $('#propMaps').value.trim();
-  if (name.length < 3 || maps.length < 5) {
-    toast('Isi nama tempat dan tautan Google Maps terlebih dahulu.');
+  if (name.length < 3 || !/^https?:\/\//i.test(maps)) {
+    toast('Isi nama tempat dan tautan Google Maps yang lengkap (diawali http).');
     return;
   }
-  proposals.unshift({ name, cat: $('#propCategory').value, date: fmtTime(new Date()) + ' hari ini', status: 'Menunggu' });
-  renderProposals();
-  $('#propName').value = ''; $('#propMaps').value = ''; $('#propNote').value = ''; $('#propGps').checked = false;
-  closeSheet('sheetPropose');
-  toast('Usulan POI terkirim.');
+
+  // Only asked for when the checkbox says so — a POI proposal has no business carrying
+  // someone's location unless they chose to attach it.
+  let gps = {};
+  if ($('#propGps').checked) {
+    const pos = await getPositionRaced(6000);
+    if (pos.denied) toast('Lokasi perangkat tidak tersedia — usulan tetap dikirim tanpa koordinat.');
+    else gps = { lat: pos.lat, lng: pos.lng };
+  }
+
+  btn.disabled = true;
+  const prev = btn.textContent;
+  btn.textContent = 'Mengirim…';
+  try {
+    const res = await api('/poi-proposals', {
+      method: 'POST',
+      body: JSON.stringify({ name, category: $('#propCategory').value, maps, note: $('#propNote').value.trim(), ...gps }),
+    });
+    PROPOSALS = res.proposals;
+    renderProposals();
+    $('#propName').value = ''; $('#propMaps').value = ''; $('#propNote').value = ''; $('#propGps').checked = false;
+    closeSheet('sheetPropose');
+    toast('Usulan POI tersimpan di POI Master — menunggu ditinjau CF.');
+  } catch (err) {
+    toast('Gagal mengirim usulan: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prev;
+  }
 }
 
 function updateOfflineBanner() {
@@ -727,6 +783,8 @@ function applyBootstrap(data) {
   KPI = data.kpi;
   HISTORY = data.history;
   META = data.meta;
+  PROPOSALS = data.proposals === undefined ? PROPOSALS : data.proposals;
+  if (data.proposalCategories) PROPOSAL_CATEGORIES = data.proposalCategories;
   if (data.rules) RULES = data.rules;
 
   hideLoadError();
@@ -741,6 +799,7 @@ function applyBootstrap(data) {
   renderPoiList();
   renderHistory();
   renderProposals();
+  renderProposalCategories();
   renderFreshness(false);
 }
 

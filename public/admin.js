@@ -255,11 +255,14 @@ function legHtml(title, ev, kind, detail) {
     ? (detail.inStatus || '—')
     : (detail.outStatus || '—');
 
+  // "Photo Reference" holds a Drive file id, not a URL — /api/photo resolves it and pulls the
+  // file down from Drive when this machine has never held it, which is what makes the board
+  // usable from a desk that isn't the one the photo was taken on.
   const photo = ev.photoAvailable
-    ? `<div class="photo"><img src="${esc(ev.photoRef)}" alt="Foto ${esc(title.toLowerCase())}" loading="lazy"></div>`
+    ? `<div class="photo"><img src="/api/photo/${encodeURIComponent(ev.photoRef)}" alt="Foto ${esc(title.toLowerCase())}" loading="lazy"></div>`
     : `<div class="photo"><div class="photo-missing">${detail.demo
         ? 'Baris semai — tidak ada foto.'
-        : 'Foto tidak tersimpan di mesin ini.<br>Bukti fotonya hilang, barisnya tidak.'}</div></div>`;
+        : 'Baris ini tidak menyimpan referensi foto.'}</div></div>`;
 
   const maps = (ev.lat != null && ev.lng != null)
     ? `<a class="maplink" href="https://www.google.com/maps?q=${ev.lat},${ev.lng}" target="_blank" rel="noopener">Lihat titik di peta →</a>`

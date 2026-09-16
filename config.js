@@ -16,6 +16,19 @@ module.exports = {
     onboarding: '1MEYkSPqYzJB5O3QBpngMT-wbBD5RZVTqaJYQ0cJI8YU',
     // "SPG Personal Dashboard - Attendance Database" (created for this app)
     attendanceDb: '1RE4mf9mCwLS8EYEFFO2l6CLjj0td1iKO1tQFX9ns9uA',
+    // SPG-submitted POI proposals. A tab inside the POI Master spreadsheet rather than a file
+    // of its own: an approved proposal becomes a POI Master row, and keeping both in one
+    // spreadsheet makes that a copy across instead of a move between documents.
+    poiProposalsTab: 'POI Proposals',
+  },
+
+  // Where attendance photos live. Previously data/photos/ and nowhere else, which meant the
+  // evidence was less durable than the record pointing at it. The local directory is still
+  // written first (a clock-in must not fail because Drive is slow) and now acts as a cache.
+  drive: {
+    photosFolderId: '1hyJ9z9DIEg4rtNu3OlwOdF3BoPYqZ1O9', // made by scripts/setup-workspace.js
+    photosFolderName: 'SPG Attendance Photos',
+    parentFolderId: '0AAs_RcEHUn3sUk9PVA',    // the folder already holding POI Master + Attendance DB
   },
 
   // Business rules. These decide whether a real person's attendance counts as valid, so they
@@ -26,6 +39,7 @@ module.exports = {
     lateAfterHour: 10,          // clock-in at/after 10:00 local = "Late"  (assumption — unconfirmed)
     earlyBeforeHour: 16,        // clock-out before 16:00 local = "Early" (assumption — unconfirmed)
     photoRetentionDays: 14,
+    recommendedPoiCount: 3,     // how many of the hub's POIs are drawn as today's recommendation
   },
 
   // Admin/CF monitoring board. demoData layers synthetic attendance (data/demo/admin-seed.json,
@@ -45,6 +59,7 @@ module.exports = {
     poiTtlMs: 60 * 60 * 1000,
     kpiTtlMs: 10 * 60 * 1000,
     attendanceTtlMs: 60 * 1000,
+    proposalsTtlMs: 5 * 60 * 1000,
   },
 
   port: process.env.PORT || 4173,
