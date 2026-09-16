@@ -37,6 +37,20 @@ module.exports = {
     parentFolderId: '0AAs_RcEHUn3sUk9PVA',    // the folder already holding POI Master + Attendance DB
   },
 
+  /* Time. Indonesia has three zones and this app may run in none of them — a serverless
+     instance runs UTC, where 06:30 WIB is still yesterday. See lib/timezone.js.
+
+     dayBoundaryZone decides when "today" becomes "tomorrow" for the whole app, deliberately
+     one zone for everybody: midnight WIB is 01:00 WITA and 02:00 WIT, so the rollover falls
+     in the middle of the night everywhere in the country and can never land inside a shift.
+
+     Durations — the minShiftHours gate — do not consult any of this; nine hours is nine hours
+     in every zone. */
+  timezone: {
+    dayBoundaryZone: 'WIB',
+    defaultZone: 'WIB', // when a roster row has no province to place someone by
+  },
+
   // Business rules. These decide whether a real person's attendance counts as valid, so they
   // are stated here as explicit policy rather than buried as magic numbers in the logic.
   rules: {
