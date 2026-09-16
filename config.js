@@ -3,7 +3,7 @@
 // a different person; every route resolves identity from this OpsID via lib/identity.js.
 module.exports = {
   spg: {
-    opsId: 'OS212341', // Bq. Elin Widyawati
+    opsId: 'OS212341',
   },
   sheets: {
     // "[Field Recruiter] SPG Active Email", tab "SPG List LM"
