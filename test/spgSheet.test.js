@@ -79,3 +79,29 @@ test('a genuinely unrecognisable sheet still fails loudly', () => {
     /Header row \(OSID\/FMSID\) not found/,
   );
 });
+
+/* ---------- which of the two ids a session is written under ----------
+   "SPG List LM" carries both OSID and FMSID, and a read-only check of all 503 live rows found
+   them different on every single one. The supervisor board joins its roster on FMSID and
+   compares it straight against "Attendance Sessions" column B, so writing OSID there produces
+   sessions that match nobody: every row reads as off-roster and the board looks empty to every
+   CF while the writes are in fact landing. Admins never see it, because seesAll skips the
+   check. That failure is silent in both directions, so the choice is pinned here. */
+
+test('a person is identified by FMSID, not OSID', () => {
+  const header = ['Name', 'OSID', 'FMSID', 'Primary Hub'];
+  const col = sheet.columns(header);
+  const row = ['Tester', 'OS212341', 'OPS4417', 'QA Hub'];
+
+  assert.equal(col.get(row, 'opsId'), 'OPS4417');
+  // The onboarding pipeline joins on this name; it must stay the same column.
+  assert.equal(col.get(row, 'fmsId'), 'OPS4417');
+  // OSID is not thrown away -- other teams index the sheet on it.
+  assert.equal(col.get(row, 'osId'), 'OS212341');
+});
+
+// The guard that made the old behaviour survivable: neither column may quietly vanish.
+test('a sheet missing either id column is refused, not guessed at', () => {
+  assert.throws(() => sheet.findHeader([['Name', 'FMSID', 'Primary Hub']], 'OSID', 'FMSID'), /Header row/);
+  assert.throws(() => sheet.findHeader([['Name', 'OSID', 'Primary Hub']], 'OSID', 'FMSID'), /Header row/);
+});
