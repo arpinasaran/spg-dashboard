@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 /* Pushes the snapshots a deployed instance reads from.
 
-   This is the piece that makes the deployment possible at all. Four of the five spreadsheets
-   belong to other teams: "SPG List LM", "Data PIC SPG", "POI Master" and the BPOM pipeline.
-   A service account is a separate identity and cannot be given access to them without those
-   teams agreeing, so a deployed instance never reads them. It reads a snapshot instead.
+   This is the piece that makes the deployment possible at all. Three of the four spreadsheets
+   belong to other teams: "SPG List LM", "POI Master" and the BPOM pipeline. A service account
+   is a separate identity and has to be granted access to each of them separately, so until
+   that is done a deployed instance cannot read them. It reads a snapshot instead.
 
    This script produces that snapshot. It runs where the access already exists — a laptop
-   with `gws` signed in as someone who can open all five — and writes the result to the Drive
-   folder the service account *can* see.
+   with `gws` signed in as someone who can open all of them — and writes the result to the
+   Drive folder the service account *can* see.
+
+   Sharing those three with the service account is what retires this script for reads. It
+   cannot retire it for writes: POI proposals are written to "POI Master", and no snapshot
+   substitutes for a write.
 
    What stays live on the deployment, needing no snapshot: attendance. The Attendance
    spreadsheet and the photos folder are yours to share, so clock-in and clock-out write

@@ -12,8 +12,10 @@ module.exports = {
   sheets: {
     // "[Field Recruiter] SPG Active Email", tab "SPG List LM"
     identity: '1pgZfhGXWyUHf3vGSddJkWXCFizO7Dfq0lCiumS9CanY',
-    // "Data PIC SPG", tab "PIC SPG" — supervisor (CF / Coordinator) email per SPG
-    cfMapping: '1iJX5kjd8cAQgZyTdCELjyTvKzgH9vrzjqBfQIgmgwcU',
+    // "Data PIC SPG" used to live here, holding one supervisor email per SPG. The roster
+    // sheet carries those columns itself now, for every SPG on it, so the second spreadsheet
+    // answered nothing the first had not already answered -- and a source that is consulted
+    // but never authoritative is a source that can drift without anyone noticing.
     // "BPOM – Consolidated POI Master", tab "POI Master"
     poiMaster: '12ooPQ1Z1X9szjbNKCSLUiZ0DZJorVj8_O3I5Gwqpr7g',
     // "[Field Recruiter] BPOM x AI Study", tabs Raw_Register / Raw_Creation / Raw_Onboarding
