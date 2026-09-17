@@ -58,6 +58,14 @@ test('coordConfidence recognises every Geocode Status value POI Master currently
   assert.strictEqual(coordConfidence('Geocoded from address (partial match)'), 'low');
 });
 
+// An approved POI proposal carries the coordinate the SPG's own phone reported at the place.
+// The dashboard labels it in its own words, and those words have to land as full confidence:
+// this is the one row in POI Master whose pin somebody physically stood on.
+test('coordConfidence trusts a coordinate that came from an SPG device', () => {
+  assert.strictEqual(coordConfidence('Provided by SPG device'), 'high');
+  assert.strictEqual(coordConfidence('POI Proposal device coordinates'), 'high');
+});
+
 test('coordConfidence still reports an unfamiliar or missing status as unknown', () => {
   assert.strictEqual(coordConfidence('Something nobody has written yet'), 'unknown');
   assert.strictEqual(coordConfidence(''), 'unknown');
