@@ -30,6 +30,13 @@ module.exports = {
     // The human-readable record a supervisor reads a password out from. Separate from the
     // hashes above so it can be restricted or emptied later without breaking anyone's login.
     passwordsTab: 'SPG Passwords',
+    /* The same readable record for the QA dummies, kept in a tab of its own.
+
+       The split is not tidiness. The real list is five hundred people's live logins, and the
+       QA list has to be handed to testers — putting both in one tab means sharing the first
+       in order to share the second. Two tabs can be shared, restricted and emptied
+       separately; the hashes stay together in one tab because that is what login reads. */
+    qaPasswordsTab: 'QA Passwords',
   },
 
   // Where attendance photos live. Previously data/photos/ and nowhere else, which meant the

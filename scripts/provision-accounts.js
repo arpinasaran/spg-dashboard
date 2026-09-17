@@ -13,6 +13,7 @@
 
      node scripts/provision-accounts.js --dry-run     # show what would happen, write nothing
      node scripts/provision-accounts.js               # create accounts for anyone without one
+     node scripts/provision-accounts.js --only-qa     # only the QA dummies, roster untouched
      node scripts/provision-accounts.js --csv out.csv # also write the list to a file
 
    Existing accounts are left alone. Someone who already has a password keeps it, because
@@ -30,6 +31,15 @@ const config = require('../config');
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run') || args.includes('-n');
+
+/* --only narrows the run to ids matching a pattern; --only-qa is the case worth a flag of its
+   own, because provisioning the QA dummies is a thing done repeatedly while the real roster
+   should be left completely alone. Both can only ever reduce the set: the default is still
+   everyone, so there is no pattern that makes this touch more than it would have. */
+const onlyArg = (args.find(a => a.startsWith('--only=')) || '').split('=')[1];
+const ONLY = args.includes('--only-qa')
+  ? credentials.isQaAccount
+  : (onlyArg ? (id => new RegExp(onlyArg, 'i').test(id)) : null);
 const csvAt = args.indexOf('--csv');
 const CSV_PATH = csvAt >= 0 ? args[csvAt + 1] : null;
 
@@ -81,8 +91,9 @@ async function main() {
       name: col.get(r, 'name'),
       resigned: col.has('resignDate') ? !!col.get(r, 'resignDate') : false,
     }))
-    .filter(p => p.opsId && !p.resigned);
-  console.log(`Roster           : ${roster.length} SPG aktif`);
+    .filter(p => p.opsId && !p.resigned)
+    .filter(p => !ONLY || ONLY(p.opsId));
+  console.log(`Roster           : ${roster.length} SPG aktif${ONLY ? ' (setelah --only)' : ''}`);
 
   // 2. Who already has one. Read once, not once per person.
   const existing = await credentials.list();
@@ -120,7 +131,10 @@ async function main() {
         an append cannot say where it landed — writing an explicit block below the last row
         we read can, which is what makes this safe to re-run. */
   await credentials.ensureTab();
-  await credentials.ensurePasswordTab();
+  await credentials.ensurePasswordTab(credentials.PASSWORD_TAB);
+  if (created.some(p => credentials.isQaAccount(p.opsId))) {
+    await credentials.ensurePasswordTab(credentials.QA_PASSWORD_TAB);
+  }
 
   const write = (range, values) => valuesUpdate(config.sheets.attendanceDb, range, values);
 
@@ -135,18 +149,38 @@ async function main() {
     created.map(p => [p.opsId, p.name, p.hash, now, '']), write,
   );
 
-  const currentPasswords = await readRange(config.sheets.attendanceDb, `'${credentials.PASSWORD_TAB}'!A2:D`);
-  await writeInChunks(
-    `sandi → "${credentials.PASSWORD_TAB}"`, credentials.PASSWORD_TAB, ['A', 'D'], currentPasswords.length + 2,
-    created.map(p => [p.opsId, p.name, p.password, now]), write,
-  );
+  /* The readable passwords go to one of two tabs. A tester is handed the QA list, and handing
+     it over must not mean handing over five hundred live logins at the same time — so the
+     split happens here, at the only place that writes them, rather than being a rule someone
+     has to remember when sharing the file. */
+  for (const tab of [credentials.PASSWORD_TAB, credentials.QA_PASSWORD_TAB]) {
+    const mine = created.filter(p => credentials.passwordTabFor(p.opsId) === tab);
+    if (!mine.length) continue;
+    const current = await readRange(config.sheets.attendanceDb, `'${tab}'!A2:D`);
+    await writeInChunks(
+      `sandi → "${tab}"`, tab, ['A', 'D'], current.length + 2,
+      mine.map(p => [p.opsId, p.name, p.password, now]), write,
+    );
+  }
 
   credentials.invalidate();
 
   // Read both tabs back and confirm they agree. An account whose password was never recorded
   // is a login nobody can perform, and it is invisible unless something looks for it.
   const finalCreds = await readRange(config.sheets.attendanceDb, `'${credentials.TAB}'!A2:E`);
-  const finalPws = await readRange(config.sheets.attendanceDb, `'${credentials.PASSWORD_TAB}'!A2:D`);
+
+  /* Both readable tabs, not just the real one. The hashes live in a single tab while the
+     passwords are split across two, so checking one of them reports every QA account as a
+     login nobody can perform -- a false alarm on a check whose entire value is that it is
+     believed when it fires. */
+  const finalPws = [];
+  for (const tab of [credentials.PASSWORD_TAB, credentials.QA_PASSWORD_TAB]) {
+    try {
+      finalPws.push(...await readRange(config.sheets.attendanceDb, `'${tab}'!A2:D`));
+    } catch {
+      // A tab that was never created has nothing in it; that is not an error to report here.
+    }
+  }
   const recorded = new Set(finalPws.map(r => String(r[0] || '').trim().toUpperCase()).filter(Boolean));
   const orphans = finalCreds
     .map(r => String(r[0] || '').trim())
@@ -155,7 +189,7 @@ async function main() {
   console.log(`\nCocok            : ${finalCreds.length} akun, ${finalPws.length} kata sandi tercatat`);
   if (orphans.length) {
     console.error(`\n${orphans.length} akun punya hash tanpa kata sandi tercatat — tidak ada yang bisa masuk sebagai mereka.`);
-    console.error(`Perbaiki dengan: node scripts/set-password.js <OS ID>`);
+    console.error(`Perbaiki dengan: node scripts/set-password.js <FMS ID>`);
     console.error(orphans.join(', '));
   }
   return { created, existing, orphans };
@@ -174,8 +208,9 @@ main()
       fs.writeFileSync(CSV_PATH, `${csv}\n`, 'utf8');
       console.log(`\nDaftar lengkap (${all.length} akun) ditulis ke ${CSV_PATH}`);
     }
-    console.log('\nSelesai. Kata sandi tersimpan apa adanya di tab "SPG Passwords" —');
-    console.log('siapa pun yang bisa membuka spreadsheet itu bisa masuk sebagai SPG mana pun.');
+    console.log(`\nSelesai. Kata sandi tersimpan apa adanya di "${credentials.PASSWORD_TAB}" (SPG nyata)`);
+    console.log(`dan "${credentials.QA_PASSWORD_TAB}" (akun dummy) — siapa pun yang bisa membuka`);
+    console.log('tab itu bisa masuk sebagai siapa pun yang terdaftar di dalamnya.');
   })
   .catch((err) => {
     console.error(`\nGagal: ${err.message}`);

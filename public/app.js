@@ -187,7 +187,7 @@ function applyIdentity() {
   const initials = ME.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
   $('#kpiAvatar').textContent = initials || '?';
   $('#kpiIdentityName').textContent = ME.name;
-  $('#kpiIdentitySub').textContent = `Ops ID ${ME.opsId} · ${myCity()}`;
+  $('#kpiIdentitySub').textContent = `FMS ID ${ME.opsId} · ${myCity()}`;
 }
 
 function applyTodayState(today) {

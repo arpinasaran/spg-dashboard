@@ -75,7 +75,7 @@ test('a signed-out visitor is sent to the login page', async () => {
 test('the login page itself is reachable while signed out', async () => {
   const res = await request('/login');
   assert.equal(res.status, 200);
-  assert.match(res.text, /Ops ID/);
+  assert.match(res.text, /FMS ID/);
 });
 
 // The front end is not public just because it is "only" static files: it is the SPG's app.
@@ -97,7 +97,7 @@ test('the wrong password is refused and no cookie is handed out', async () => {
   const res = await request('/login', { method: 'POST', form: { opsId: 'OS212341', password: 'salah' } });
   assert.equal(res.status, 401);
   assert.equal(res.headers['set-cookie'], undefined);
-  assert.match(res.text, /Ops ID atau kata sandi salah/);
+  assert.match(res.text, /FMS ID atau kata sandi salah/);
 });
 
 /* Same message either way. Distinguishing them would turn the form into a way to find out
@@ -106,7 +106,7 @@ test('an unknown OpsID is refused with the same message as a wrong password', as
   const unknown = await request('/login', { method: 'POST', form: { opsId: 'OS777777', password: 'apa saja' } });
   const wrong = await request('/login', { method: 'POST', form: { opsId: 'OS212341', password: 'salah' } });
   assert.equal(unknown.status, wrong.status);
-  assert.match(unknown.text, /Ops ID atau kata sandi salah/);
+  assert.match(unknown.text, /FMS ID atau kata sandi salah/);
 });
 
 // Retyping a long OpsID on a phone after one typo is exactly the friction this app is

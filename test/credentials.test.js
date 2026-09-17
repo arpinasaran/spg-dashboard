@@ -51,9 +51,9 @@ test('a damaged or hand-edited hash cell locks the account instead of opening it
 // Raising the cost later must not invalidate passwords set under the old parameters, which is
 // why they travel inside the stored value rather than being read from this file.
 /* The four-character format: one letter, then three consecutive digits lifted from the SPG's
-   own Ops ID. Short enough to read out over the phone, which is the whole point, and weak
+   own FMS ID. Short enough to read out over the phone, which is the whole point, and weak
    enough that the throttle below is what makes it usable at all. */
-test('a password is one letter followed by three digits from the Ops ID', () => {
+test('a password is one letter followed by three digits from the FMS ID', () => {
   for (let i = 0; i < 40; i++) {
     const pw = credentials.generatePassword('OS212341');
     assert.match(pw, /^[a-z]\d{3}$/, `unexpected shape: ${pw}`);
@@ -71,21 +71,21 @@ test('the digit windows are every three-in-a-row, and only those', () => {
 });
 
 /* The letter and the window are both drawn at random rather than derived. If they were
-   derived, the password would be a function of the Ops ID — which is typed into the same form
+   derived, the password would be a function of the FMS ID — which is typed into the same form
    — and anyone who learned the rule could sign in as any SPG. */
-test('the same Ops ID does not always produce the same password', () => {
+test('the same FMS ID does not always produce the same password', () => {
   const seen = new Set();
   for (let i = 0; i < 60; i++) seen.add(credentials.generatePassword('OS212341'));
   assert.ok(seen.size > 5, `only ${seen.size} distinct passwords in 60 draws`);
 });
 
-test('an Ops ID without three consecutive digits is refused, not silently padded', () => {
+test('an FMS ID without three consecutive digits is refused, not silently padded', () => {
   assert.throws(() => credentials.generatePassword('OS12'), /3 angka berurutan/);
   assert.throws(() => credentials.generatePassword('ABCDEF'), /3 angka berurutan/);
 });
 
 // Without this, ~130 possibilities is a few seconds of scripted guessing.
-test('repeated failures lock an Ops ID out for a while', () => {
+test('repeated failures lock an FMS ID out for a while', () => {
   const id = 'OS999001';
   credentials.clearFailures(id);
   assert.equal(credentials.lockState(id).locked, false);
@@ -112,7 +112,7 @@ test('the lockout expires on its own', () => {
 });
 
 // One SPG guessing wrong must not lock out their colleague.
-test('a lockout is per Ops ID', () => {
+test('a lockout is per FMS ID', () => {
   credentials.clearFailures('OS999003');
   credentials.clearFailures('OS999004');
   for (let i = 0; i < credentials.MAX_ATTEMPTS; i++) credentials.noteFailure('OS999003');
@@ -129,4 +129,25 @@ test('a hash carries its own cost parameters', async () => {
   // Same salt and hash bytes, different stated cost: it must recompute under the stated one
   // and therefore fail, rather than comparing the stored bytes blindly.
   assert.equal(await credentials.verifyHash('rahasia-spg', cheaper), false);
+});
+
+/* The QA list is handed to testers; the real list is five hundred live logins. Routing is by
+   the reserved roster prefixes rather than by eye, so this pins that a real FMSID can never
+   be routed into the tester-facing tab. */
+test('a dummy password goes to the QA tab and a real one does not', () => {
+  assert.equal(credentials.isQaAccount('Ops9900003'), true);
+  assert.equal(credentials.isQaAccount('OSQA0003'), true);
+  assert.equal(credentials.isQaAccount('Ops1624800'), false, 'a real FMSID is not a QA account');
+  assert.equal(credentials.isQaAccount('OS191121'), false, 'a real OSID is not a QA account');
+  assert.equal(credentials.isQaAccount(''), false);
+
+  assert.equal(credentials.passwordTabFor('Ops9900003'), credentials.QA_PASSWORD_TAB);
+  assert.equal(credentials.passwordTabFor('Ops1624800'), credentials.PASSWORD_TAB);
+});
+
+// Ops9900001 has seven digits, so it yields windows the generator can actually use -- the
+// dummies must not be a shape that trips the "no three consecutive digits" refusal.
+test('a QA dummy FMSID can produce a password', () => {
+  const pw = credentials.generatePassword('Ops9900001');
+  assert.match(pw, /^[a-z]\d{3}$/);
 });
