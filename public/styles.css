@@ -326,3 +326,17 @@ a{color:inherit;}
   #panel-home .row-icon{width:28px;height:28px;}
   .navbtn{padding:5px 4px 3px;}
 }
+
+
+/* Shown when someone is closing a shift before it is full. Amber rather than red: this is a
+   thing they are allowed to do, and the message asks for a reason, it does not refuse them. */
+.shortshift-warn {
+  margin-bottom: 12px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border-left: 3px solid #b8860b;
+  background: #fdf4e0;
+  color: #6b4f14;
+  font-size: 13px;
+  line-height: 1.45;
+}

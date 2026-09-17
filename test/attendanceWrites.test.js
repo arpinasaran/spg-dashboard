@@ -419,3 +419,102 @@ test('a photo reference resolves to the OpsID that owns it', async () => {
   assert.equal(await attendance.ownerOfPhotoRef('drive:invented'), null,
     'a reference nobody owns is not served to anybody');
 });
+
+/* ---------- an early clock-out is allowed, flagged, and must say why ---------- */
+
+function shortShiftFixture(sheet) {
+  const inTime = new Date('2026-09-17T02:00:00.000Z').toISOString();
+  sheet.tabs['Attendance Sessions'].push(sessionRow({
+    sessionId: `${OPS}_2026-09-17`, date: '2026-09-17',
+    inEventId: `${OPS}_2026-09-17_in`, inTime,
+  }));
+  // Four hours in — five short of the nine-hour norm.
+  return new Date('2026-09-17T06:00:00.000Z');
+}
+
+test('clocking out early without a reason is refused, and says so as a request not a rule', async () => {
+  const sheet = fakeSheet();
+  const attendance = load(sheet);
+  const now = shortShiftFixture(sheet);
+
+  await assert.rejects(
+    () => attendance.clockOut(submission({ txnId: 'txn-short-none1', now })),
+    (err) => {
+      assert.equal(err.status, 400);
+      assert.equal(err.needsReason, true, 'the browser is told to ask for a reason');
+      assert.match(err.message, /boleh, tapi alasannya wajib diisi/);
+      return true;
+    },
+  );
+  assert.equal(sheet.writes.length, 0, 'nothing was written');
+});
+
+test('a reason too short to be a reason does not get through', async () => {
+  const sheet = fakeSheet();
+  const attendance = load(sheet);
+  const now = shortShiftFixture(sheet);
+
+  await assert.rejects(
+    () => attendance.clockOut(submission({ txnId: 'txn-short-tiny1', now, shortShiftReason: 'ok' })),
+    (err) => err.status === 400 && err.needsReason === true,
+  );
+});
+
+test('with a reason it is recorded, flagged, and the reason lands where the board reads it', async () => {
+  const sheet = fakeSheet();
+  const attendance = load(sheet);
+  const now = shortShiftFixture(sheet);
+
+  const result = await attendance.clockOut(submission({
+    txnId: 'txn-short-ok001', now,
+    shortShiftReason: 'lokasi tutup lebih awal karena hujan deras',
+    activityResult: 'Ada kendala',
+  }));
+
+  assert.equal(result.shortShift, true, 'the caller is told it was recorded as early');
+  assert.ok(result.flags.includes('SHORT_SHIFT'));
+
+  const session = sheet.tabs['Attendance Sessions'][0];
+  assert.equal(session[COL.OUT_EVENT], `${OPS}_2026-09-17_out`, 'the day is closed, not refused');
+
+  const event = sheet.tabs['Attendance Events'].find(r => r[3] === 'Clock Out');
+  assert.ok(String(event[15]).split(',').includes('SHORT_SHIFT'), 'flagged on the event row');
+  // Column O is what the dashboard shows in its evidence drawer.
+  assert.match(String(event[14]), /Pulang lebih awal \(baru 4 jam dari 9 jam\): lokasi tutup lebih awal/);
+});
+
+test('an early clock-out keeps the note the SPG already wrote about their location', async () => {
+  const sheet = fakeSheet();
+  const attendance = load(sheet);
+  const now = shortShiftFixture(sheet);
+
+  await attendance.clockOut(submission({
+    txnId: 'txn-short-both1', now,
+    note: 'di depan pasar, POI tidak ada di daftar',
+    shortShiftReason: 'diminta pulang oleh CF',
+  }));
+
+  const event = sheet.tabs['Attendance Events'].find(r => r[3] === 'Clock Out');
+  assert.match(String(event[14]), /di depan pasar/, 'the location note survives');
+  assert.match(String(event[14]), /diminta pulang oleh CF/, 'and so does the reason');
+});
+
+test('a full shift needs no reason and carries no early flag', async () => {
+  const sheet = fakeSheet();
+  const attendance = load(sheet);
+  const inTime = new Date('2026-09-17T00:00:00.000Z').toISOString();
+  sheet.tabs['Attendance Sessions'].push(sessionRow({
+    sessionId: `${OPS}_2026-09-17`, date: '2026-09-17',
+    inEventId: `${OPS}_2026-09-17_in`, inTime,
+  }));
+
+  const result = await attendance.clockOut(submission({
+    txnId: 'txn-full-shift1', now: new Date('2026-09-17T10:00:00.000Z'),
+  }));
+
+  assert.equal(result.shortShift, false);
+  assert.ok(!result.flags.includes('SHORT_SHIFT'));
+  const event = sheet.tabs['Attendance Events'].find(r => r[3] === 'Clock Out');
+  assert.equal(String(event[14]), 'di luar daftar', 'the location note is carried through unchanged');
+  assert.ok(!/Pulang lebih awal/.test(String(event[14])), 'and nothing about an early finish is appended');
+});

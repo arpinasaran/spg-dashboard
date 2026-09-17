@@ -17,7 +17,7 @@ function wrap(handler, defaultStatus = 503) {
       // sessionId / recoverable / gate travel with the error where the thrower set them: the
       // browser needs to tell "try again" apart from "you are already clocked in".
       const body = { error: err.message };
-      for (const key of ['sessionId', 'recoverable', 'gate']) {
+      for (const key of ['sessionId', 'recoverable', 'gate', 'needsReason']) {
         if (err[key] !== undefined) body[key] = err[key];
       }
       res.status(err.status || defaultStatus).json(body);
@@ -241,6 +241,7 @@ router.post('/attendance/clock-out', wrap(async (req, res) => {
     lat: b.lat, lng: b.lng, accuracy: b.accuracy,
     deviceTime: b.deviceTime, photoDataUrl: b.photoDataUrl,
     activityResult: b.activityResult, activityNote: b.activityNote,
+    shortShiftReason: b.shortShiftReason,
   });
   res.json({ ...result, today: await attendance.getToday(me.opsId), history: await attendance.getHistory(me.opsId, 14) });
 }, 400));

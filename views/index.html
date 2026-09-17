@@ -224,6 +224,12 @@
         <label class="optrow" data-result="done"><input type="radio" name="actResult" value="done"><span><span class="ot-title">Aktivitas selesai</span><span class="ot-sub">Kunjungan berjalan normal, tidak ada kendala.</span></span></label>
         <label class="optrow" data-result="issue"><input type="radio" name="actResult" value="issue"><span><span class="ot-title">Ada kendala</span><span class="ot-sub">Contoh: lokasi tutup, cuaca buruk, akses sulit.</span></span></label>
       </div>
+      <div class="field" id="shortShiftField" style="display:none;">
+        <div class="shortshift-warn" id="shortShiftWarn"></div>
+        <label for="shortShiftReason">Alasan pulang lebih awal</label>
+        <textarea id="shortShiftReason" placeholder="Contoh: lokasi tutup lebih awal, diminta pulang oleh CF, kondisi darurat."></textarea>
+      </div>
+
       <div class="field" id="issueNoteField" style="display:none;">
         <label for="issueNote">Catatan kendala</label>
         <textarea id="issueNote" placeholder="Ceritakan singkat kendala yang dialami."></textarea>

@@ -269,17 +269,21 @@ function renderTicket() {
     stamp.textContent = 'Sedang Bertugas';
     headline.textContent = (!state.clockInPOI || state.clockInPOI === 'other') ? 'Bertugas dari lokasi lain' : 'Bertugas di ' + poiName(state.clockInPOI);
 
-    /* The clock-out button stays locked until the shift is long enough, and says how much
-       longer rather than just refusing. An SPG who taps a dead button learns nothing; one
-       who reads "3 jam 20 menit lagi" knows when to come back. The server enforces the same
-       moment, so this is a courtesy, not the rule itself. */
+    /* The button is never locked any more.
+
+       It used to be disabled until nine hours had passed, which read as the app being broken
+       to anyone whose shift genuinely ended early — and it did not stop the day ending, it
+       only stopped it being recorded. Now the shift length is shown, an early clock-out is
+       allowed, and the person is told before they start that it will be flagged and that they
+       will be asked why. Being told the rule and allowed to proceed is a different thing from
+       being refused. */
     const gate = gateNow();
-    btn.textContent = gate.locked ? `Absen Pulang · ${fmtLeft(gate.msLeft)} lagi` : 'Absen Pulang';
-    btn.disabled = gate.locked;
+    btn.textContent = 'Absen Pulang';
+    btn.disabled = false;
     btn.dataset.target = 'sheetClockOut';
     note.innerHTML = gate.locked
-      ? `Masuk <b>${fmtTime(state.clockInTime)}</b> · Bisa pulang <b>${fmtTime(gate.unlocksAt)}</b>`
-      : `Masuk <b>${fmtTime(state.clockInTime)}</b> · Sudah bisa absen pulang`;
+      ? `Masuk <b>${fmtTime(state.clockInTime)}</b> · Jam penuh <b>${fmtTime(gate.unlocksAt)}</b> · pulang lebih awal perlu alasan`
+      : `Masuk <b>${fmtTime(state.clockInTime)}</b> · Sudah lewat ${RULES.minShiftHours} jam`;
   } else if (state.attendance === 'clocked_out') {
     const needsReview = state.reviewStatus === 'Needs Review';
     stamp.className = 'daystatus ' + (needsReview ? 'st-caution' : 'st-verified');
@@ -512,13 +516,31 @@ function validateStep(flow) {
   } else if (step === 3) {
     nextBtn.disabled = !state.camStreams[flow + '_captured'];
   } else if (step === 4) {
+    const short = syncShortShift();
     const res = document.querySelector('input[name="actResult"]:checked');
     if (!res) { nextBtn.disabled = true; return; }
-    if (res.value === 'issue') {
-      nextBtn.disabled = $('#issueNote').value.trim().length < 3;
-    } else nextBtn.disabled = false;
-    nextBtn.textContent = 'Catat Absen Pulang';
+    let blocked = false;
+    if (res.value === 'issue') blocked = $('#issueNote').value.trim().length < 3;
+    // Matches MIN_REASON_LENGTH on the server, which is where the rule actually holds.
+    if (short && $('#shortShiftReason').value.trim().length < 6) blocked = true;
+    nextBtn.disabled = blocked;
+    nextBtn.textContent = short ? 'Catat Pulang Lebih Awal' : 'Catat Absen Pulang';
   }
+}
+
+/* Called whenever the clock-out sheet opens, and again at step 4, because a shift can cross
+   the nine-hour line while the sheet is open — somebody can sit on step 2 for ten minutes. */
+function syncShortShift() {
+  const field = $('#shortShiftField');
+  if (!field) return false;
+  const gate = gateNow();
+  field.style.display = gate.locked ? 'block' : 'none';
+  if (gate.locked) {
+    $('#shortShiftWarn').innerHTML =
+      `Kamu absen pulang <b>${fmtLeft(gate.msLeft)} lebih awal</b> dari ${RULES.minShiftHours} jam. `
+      + 'Ini boleh, tapi hari ini akan ditandai untuk ditinjau pengawas, dan alasannya wajib diisi.';
+  }
+  return gate.locked;
 }
 
 function goStep(flow, n) {
@@ -709,6 +731,8 @@ function finalizeCapture(flow, isSample, dataUrl) {
 function retake(flow) {
   state.camStreams[flow + '_captured'] = false;
   delete state.capturedPhoto[flow];
+  const shortReason = $('#shortShiftReason');
+  if (shortReason) shortReason.value = '';
   const wrap = $(flow === 'in' ? '#inCamWrap' : '#outCamWrap');
   wrap.innerHTML = `<div class="camplaceholder">${ICONS.cam}Kamera belum aktif</div>`;
   const actions = wrap.parentElement.querySelector('.camactions');
@@ -742,6 +766,7 @@ async function finishFlow(flow) {
     const res = document.querySelector('input[name="actResult"]:checked');
     payload.activityResult = res ? (res.value === 'done' ? 'Aktivitas selesai' : 'Ada kendala') : '';
     payload.activityNote = res && res.value === 'issue' ? $('#issueNote').value.trim() : '';
+    payload.shortShiftReason = gateNow().locked ? $('#shortShiftReason').value.trim() : '';
   }
 
   nextBtn.disabled = true;
@@ -755,7 +780,9 @@ async function finishFlow(flow) {
     toast(flow === 'in'
       // No "on time" / "late" verdict to report any more — starting is just starting.
       ? `Absen masuk tercatat ${fmtTime(new Date())} · pulang bisa setelah ${RULES.minShiftHours} jam`
-      : `Absen pulang tercatat ${fmtTime(new Date())}`);
+      : (result.shortShift
+        ? `Absen pulang tercatat ${fmtTime(new Date())} · ditandai pulang lebih awal, pengawas akan meninjau`
+        : `Absen pulang tercatat ${fmtTime(new Date())}`));
     // The write response already carries the updated session and history, so there's no
     // read-back round trip here.
     applyTodayState(result.today);
@@ -797,7 +824,7 @@ document.addEventListener('click', (e) => {
   if (action === 'goto-tab') gotoTab(t.dataset.tab);
   else if (action === 'open-sheet') {
     const target = t.dataset.target;
-    if (target === 'sheetClockOut') buildLocationOptions('out');
+    if (target === 'sheetClockOut') { buildLocationOptions('out'); syncShortShift(); }
     openSheet(target);
   }
   else if (action === 'close-sheet') closeSheet(t.dataset.target);
@@ -904,6 +931,7 @@ async function loadAll() {
     goStep('in', 1);
     goStep('out', 1);
     $('#issueNote').addEventListener('input', () => validateStep('out'));
+    $('#shortShiftReason').addEventListener('input', () => validateStep('out'));
     $('#poiSearch').addEventListener('input', e => { poiQuery = e.target.value; renderPoiList(); });
 
     setInterval(renderTicket, 30000);
