@@ -241,7 +241,11 @@ a{color:inherit;}
 .camwrap .camplaceholder{color:#8a8272;text-align:center;padding:20px;font-size:13px;}
 .camplaceholder svg{width:34px;height:34px;margin-bottom:8px;}
 .camnote{font-size:11.5px;color:var(--ink-faint);text-align:center;margin-top:8px;}
-.camactions{display:flex;gap:10px;margin-top:12px;}
+/* Above the camera, not below it. The preview is a 3:4 box, which on a phone pushes anything
+   underneath it past the fold — so the button you need in order to start was the one you had
+   to scroll to find. The margin moved with it: it now separates the button from the preview
+   below rather than from whatever sat above. */
+.camactions{display:flex;gap:10px;margin-bottom:12px;}
 .camactions .btn{flex:1;}
 
 .result-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:4px;}
