@@ -34,9 +34,15 @@ require('../lib/env').load();
 process.env.SHEETS_DRIVER = 'gws';
 process.env.STORE_DRIVER = 'drive';
 
+const fs = require('fs');
+const path = require('path');
+
 const config = require('../config');
 const { flush } = require('../lib/background');
 const store = require('../lib/store');
+const driveFiles = require('../lib/driveFiles');
+const gws = require('../lib/gwsClient');
+const oauth = require('../lib/oauthClient');
 const credentials = require('../lib/credentials');
 const identity = require('../lib/identity');
 const poi = require('../lib/poi');
@@ -51,6 +57,45 @@ function requireEnv() {
     console.error('Cara tercepat: `vercel env pull .env` — isinya jadi sama persis dengan produksi.');
     process.exit(1);
   }
+}
+
+/* A snapshot file has to be born under a human's quota — see the note on setCreator in
+   lib/driveFiles.js. This is the one place in the codebase where both identities are present
+   at once, so this is where that birth happens.
+
+   gws uploads from a path rather than a buffer and refuses any path outside the working
+   directory, so the JSON goes through a temporary file under data/ (gitignored) that is
+   removed again whether the upload succeeds or not. The counter keeps the three steps that
+   run under Promise.all from colliding on one name. */
+const created = [];
+let tmpSeq = 0;
+
+function registerHumanCreator() {
+  /* OAuth credentials, where they exist, are the same human with none of the overhead: a
+     plain API call instead of a `gws` process spawned per file. lib/driveFiles.js already
+     reaches for them on its own when no creator is registered, so the right move here is to
+     register nothing and stay out of the way. The CLI path below is for a laptop that has
+     never run `npm run oauth-setup`. */
+  if (oauth.configured()) {
+    console.log('  File baru dibuat lewat kredensial OAuth.\n');
+    return;
+  }
+
+  driveFiles.setCreator(async ({ name, value, parentId }) => {
+    const dir = path.join(process.cwd(), 'data');
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = path.join(dir, `.snapshot-upload-${process.pid}-${tmpSeq++}.json`);
+    fs.writeFileSync(tmp, JSON.stringify(value));
+    try {
+      const made = await gws.driveUpload({
+        localPath: tmp, name, mimeType: 'application/json', parentId,
+      });
+      created.push(name);
+      return made;
+    } finally {
+      try { fs.unlinkSync(tmp); } catch { /* already gone is fine */ }
+    }
+  });
 }
 
 let failures = 0;
@@ -82,6 +127,7 @@ async function targetOpsIds() {
 
 async function main() {
   requireEnv();
+  registerHumanCreator();
 
   const opsIds = await targetOpsIds();
   console.log(`Menyiapkan snapshot untuk ${opsIds.length} SPG: ${opsIds.join(', ')}`);
@@ -153,6 +199,10 @@ async function main() {
 
   const keys = await store.listKeys().catch(() => []);
   console.log(`\n${keys.length} snapshot ada di Drive.`);
+  if (created.length) {
+    console.log(`${created.length} di antaranya baru dibuat atas nama akun yang login — `
+      + 'sesudah ini service account cukup menimpanya.');
+  }
   if (failures) {
     console.error(`${failures} bagian gagal — yang lain tetap tersimpan. Perbaiki lalu jalankan ulang.`);
     process.exit(1);

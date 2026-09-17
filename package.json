@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node server.js",
     "sync": "node scripts/sync-snapshot.js",
-    "test": "node --test"
+    "test": "node --test",
+    "oauth-setup": "node scripts/oauth-setup.js"
   },
   "dependencies": {
     "@vercel/functions": "^3.9.8",
