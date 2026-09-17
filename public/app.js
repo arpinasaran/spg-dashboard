@@ -27,7 +27,35 @@ const state = {
   clockOutPOI: null, clockOutTime: null, clockOutStatus: null,
   reviewStatus: null,
   camStreams: {}, capturedPhoto: {},
+  // One transaction id per submission, kept across retries of that same submission. See txnFor().
+  txn: {},
 };
+
+/* A stable id for one attempt to record one thing.
+
+   The failure this exists for: the row reaches the sheet, the response does not reach the
+   phone — a tunnel, a dropped connection, a function that timed out after its own write
+   succeeded. The SPG sees "Gagal menyimpan", presses the button again, and without an id the
+   server has no way to tell that second request apart from a genuine second clock-in. It
+   answered "sudah absen masuk hari ini", which reads as a refusal to someone who is in fact
+   already clocked in and now believes they are not.
+
+   Generated once and reused until the submission succeeds, so every retry carries the same id
+   and the server can recognise its own work. crypto.randomUUID needs a secure context, which
+   is also what the camera and GPS need, so the fallback here is for nothing more than a
+   desktop browser on plain http during development. */
+function newTxnId() {
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  (window.crypto || {}).getRandomValues ? window.crypto.getRandomValues(bytes)
+    : bytes.forEach((_, i) => { bytes[i] = Math.floor(Math.random() * 256); });
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function txnFor(flow) {
+  if (!state.txn[flow]) state.txn[flow] = newTxnId();
+  return state.txn[flow];
+}
 
 function $(sel, root) { return (root || document).querySelector(sel); }
 function $all(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
@@ -63,7 +91,14 @@ async function api(path, opts = {}) {
   });
   let body = null;
   try { body = await res.json(); } catch (_) { /* no body */ }
-  if (!res.ok) throw new Error((body && body.error) || res.statusText);
+  if (!res.ok) {
+    // Carry the status and whatever the server attached, so a caller can tell a conflict it
+    // should stop retrying apart from a partial write it should retry.
+    const err = new Error((body && body.error) || res.statusText);
+    err.status = res.status;
+    if (body) Object.assign(err, { sessionId: body.sessionId, recoverable: body.recoverable, gate: body.gate });
+    throw err;
+  }
   return body;
 }
 
@@ -695,6 +730,7 @@ async function finishFlow(flow) {
   const gps = state.lastGps || {};
 
   const payload = {
+    txnId: txnFor(flow),
     poiId: loc,
     poiName: poi ? poi.name : null,
     note: loc === 'other' ? noteEl.value.trim() : '',
@@ -713,6 +749,8 @@ async function finishFlow(flow) {
   nextBtn.textContent = 'Menyimpan…';
   try {
     const result = await api(`/attendance/clock-${flow}`, { method: 'POST', body: JSON.stringify(payload) });
+    // Committed. The id must not be reused for the next, genuinely different, submission.
+    delete state.txn[flow];
     closeSheet(sheetId);
     toast(flow === 'in'
       // No "on time" / "late" verdict to report any more — starting is just starting.
@@ -727,6 +765,11 @@ async function finishFlow(flow) {
     renderHistory();
     resetFlowForm(flow);
   } catch (err) {
+    /* The id is deliberately NOT cleared here. Whatever went wrong, pressing the button again
+       has to carry the same id: that is the only thing that lets the server recognise a retry
+       of a write that may already have landed. It is cleared on success, and on a conflict the
+       server has told us about, where reusing it would be meaningless. */
+    if (err.status === 409 && !err.recoverable) delete state.txn[flow];
     toast('Gagal menyimpan: ' + err.message);
     nextBtn.disabled = false;
     nextBtn.textContent = prevLabel;

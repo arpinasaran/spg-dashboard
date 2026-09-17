@@ -7,13 +7,20 @@ const kpi = require('../lib/kpi');
 const attendance = require('../lib/attendance');
 const proposals = require('../lib/poiProposals');
 const photoStore = require('../lib/photoStore');
+const { isAdmin } = require('./login');
 const config = require('../config');
 
 function wrap(handler, defaultStatus = 503) {
   return (req, res) => {
     handler(req, res).catch(err => {
       console.error(err);
-      res.status(err.status || defaultStatus).json({ error: err.message });
+      // sessionId / recoverable / gate travel with the error where the thrower set them: the
+      // browser needs to tell "try again" apart from "you are already clocked in".
+      const body = { error: err.message };
+      for (const key of ['sessionId', 'recoverable', 'gate']) {
+        if (err[key] !== undefined) body[key] = err[key];
+      }
+      res.status(err.status || defaultStatus).json(body);
     });
   };
 }
@@ -174,8 +181,27 @@ router.post('/poi-proposals', wrap(async (req, res) => {
    A photo reference on a sheet row is a Drive file id, not a URL. This turns one into an
    image the browser can load, pulling it down from Drive on first miss — which is what lets
    the board show evidence on a machine that never took the photo. */
+/* Whose photo this is decides whether it is served.
+
+   The reference is a Drive file id sitting in a sheet cell, and the only thing that used to
+   stand between a signed-in SPG and every photo ever taken was not knowing the ids — which is
+   not access control, and stops being true the moment anyone reads the sheet, guesses an event
+   id, or shares a URL. An attendance photo is a picture of a named person at a named place; it
+   is exactly the kind of thing that must not be readable across accounts.
+
+   Supervisors on the admin board legitimately look at everyone's, so they are allowed through
+   by the same allowlist that guards the board itself. */
 router.get('/photo/:ref', wrap(async (req, res) => {
-  const image = await photoStore.fetch(req.params.ref);
+  const ref = req.params.ref;
+  const owner = await attendance.ownerOfPhotoRef(ref);
+  if (!owner) return res.status(404).json({ error: 'Foto tidak ditemukan' });
+  if (owner !== req.spgOpsId && !isAdmin(req)) {
+    // 404, not 403: confirming that a reference exists but belongs to someone else is itself
+    // a disclosure, and there is nothing useful the requester could do with the distinction.
+    return res.status(404).json({ error: 'Foto tidak ditemukan' });
+  }
+
+  const image = await photoStore.fetch(ref);
   if (!image) return res.status(404).json({ error: 'Foto tidak ditemukan' });
   res.set('Cache-Control', 'private, max-age=86400'); // evidence is immutable once written
   res.type(image.contentType).send(image.buffer);
@@ -186,15 +212,36 @@ router.get('/attendance/session/:sessionId', wrap(async (req, res) => {
   res.json(await attendance.getSessionDetail(me.opsId, req.params.sessionId));
 }));
 
+/* The response is sent only after the sheet write returned.
+
+   Both handlers await the write and then read the session back out of the (now updated) store,
+   so "Absen masuk tercatat" on the phone means a row exists. Nothing is queued, nothing
+   finishes after the response: a serverless instance may be frozen the moment it replies, so
+   work deferred past that point is work that may simply never happen. */
 router.post('/attendance/clock-in', wrap(async (req, res) => {
   const me = await identity.getIdentity(req.spgOpsId);
-  const result = await attendance.clockIn({ opsId: me.opsId, spgName: me.name, ...req.body });
+  const b = req.body || {};
+  const result = await attendance.clockIn({
+    opsId: me.opsId, spgName: me.name,
+    txnId: b.txnId,
+    poiId: b.poiId, poiName: b.poiName, note: b.note,
+    lat: b.lat, lng: b.lng, accuracy: b.accuracy,
+    deviceTime: b.deviceTime, photoDataUrl: b.photoDataUrl,
+  });
   res.json({ ...result, today: await attendance.getToday(me.opsId), history: await attendance.getHistory(me.opsId, 14) });
 }, 400));
 
 router.post('/attendance/clock-out', wrap(async (req, res) => {
   const me = await identity.getIdentity(req.spgOpsId);
-  const result = await attendance.clockOut({ opsId: me.opsId, ...req.body });
+  const b = req.body || {};
+  const result = await attendance.clockOut({
+    opsId: me.opsId,
+    txnId: b.txnId,
+    poiId: b.poiId, poiName: b.poiName, note: b.note,
+    lat: b.lat, lng: b.lng, accuracy: b.accuracy,
+    deviceTime: b.deviceTime, photoDataUrl: b.photoDataUrl,
+    activityResult: b.activityResult, activityNote: b.activityNote,
+  });
   res.json({ ...result, today: await attendance.getToday(me.opsId), history: await attendance.getHistory(me.opsId, 14) });
 }, 400));
 
