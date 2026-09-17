@@ -82,10 +82,24 @@ function upsertEnv(key, value) {
 
 function openBrowser(url) {
   try {
-    // Windows: the first quoted argument of `start` is the window title, hence the empty one.
-    if (process.platform === 'win32') spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' }).unref();
-    else if (process.platform === 'darwin') spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
-    else spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
+    if (process.platform === 'win32') {
+      /* The URL must be quoted, and the quotes must survive Node.
+
+         cmd reads & as a command separator. An OAuth URL is mostly &, so passed bare it
+         reaches the browser truncated at the first one — everything from prompt= onwards is
+         gone, including response_type, and Google answers "Required parameter is missing:
+         response_type" for a request the script built perfectly well. Quoting stops cmd
+         splitting it; windowsVerbatimArguments stops Node from rewriting the quoting on its
+         way out. The bare "" before it is start's window-title argument, which it needs
+         because otherwise it reads the quoted URL as the title and opens nothing. */
+      spawn('cmd', ['/c', 'start', '""', `"${url}"`], {
+        detached: true, stdio: 'ignore', windowsVerbatimArguments: true,
+      }).unref();
+    } else if (process.platform === 'darwin') {
+      spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
+    }
   } catch {
     // Printing the URL is the real interface; opening it is a convenience.
   }
@@ -172,6 +186,8 @@ async function main() {
 
   console.log('Login di browser sebagai akun yang memiliki folder foto Drive.\n');
   console.log(authUrl);
+  console.log('\nKalau browser tidak terbuka, atau halamannya bilang ada parameter yang kurang,');
+  console.log('salin URL di atas utuh sampai akhir dan tempel sendiri ke browser.');
   console.log('\nMenunggu balasan di ' + redirectUri + ' …');
   openBrowser(authUrl);
 
