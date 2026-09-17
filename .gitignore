@@ -5,3 +5,8 @@ server.log
 
 .env*
 .vercel
+
+# Berisi ID spreadsheet/folder produksi, domain internal, dan arsitektur paket Apps Script
+# yang bukan milik repo ini. Remote-nya publik, jadi dokumen ini tidak pernah boleh ikut.
+# Simpan/bagikan lewat Drive internal.
+INTEGRATION_CONTRACT.md
