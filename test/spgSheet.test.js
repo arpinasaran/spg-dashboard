@@ -81,26 +81,25 @@ test('a genuinely unrecognisable sheet still fails loudly', () => {
 });
 
 /* ---------- which of the two ids a session is written under ----------
-   "SPG List LM" carries both OSID and FMSID, and a read-only check of all 503 live rows found
-   them different on every single one. The supervisor board joins its roster on FMSID and
-   compares it straight against "Attendance Sessions" column B, so writing OSID there produces
-   sessions that match nobody: every row reads as off-roster and the board looks empty to every
-   CF while the writes are in fact landing. Admins never see it, because seesAll skips the
-   check. That failure is silent in both directions, so the choice is pinned here. */
+   "SPG List LM" carries both OSID and FMSID. A read-only check of all 503 live rows found
+   them different on every single one, and not even the same shape: OS191121 against
+   Ops1624800. The supervisor board compares its roster id straight against
+   "Attendance Sessions" column B, so the two sides have to agree on which one that is --
+   otherwise every row reads as off-roster and the board looks empty to every CF while the
+   writes are in fact landing. Admins never see it, because seesAll skips the check. Silent
+   in both directions, so the choice is pinned here. */
 
-test('a person is identified by FMSID, not OSID', () => {
+test('a person is identified by OSID, not FMSID', () => {
   const header = ['Name', 'OSID', 'FMSID', 'Primary Hub'];
   const col = sheet.columns(header);
-  const row = ['Tester', 'OS212341', 'OPS4417', 'QA Hub'];
+  const row = ['Tester', 'OS191121', 'Ops1624800', 'QA Hub'];
 
-  assert.equal(col.get(row, 'opsId'), 'OPS4417');
-  // The onboarding pipeline joins on this name; it must stay the same column.
-  assert.equal(col.get(row, 'fmsId'), 'OPS4417');
-  // OSID is not thrown away -- other teams index the sheet on it.
-  assert.equal(col.get(row, 'osId'), 'OS212341');
+  assert.equal(col.get(row, 'opsId'), 'OS191121');
+  // A different column with its own job: the onboarding pipeline joins on this one.
+  assert.equal(col.get(row, 'fmsId'), 'Ops1624800');
 });
 
-// The guard that made the old behaviour survivable: neither column may quietly vanish.
+// The guard that makes the choice survivable: neither column may quietly vanish.
 test('a sheet missing either id column is refused, not guessed at', () => {
   assert.throws(() => sheet.findHeader([['Name', 'FMSID', 'Primary Hub']], 'OSID', 'FMSID'), /Header row/);
   assert.throws(() => sheet.findHeader([['Name', 'OSID', 'Primary Hub']], 'OSID', 'FMSID'), /Header row/);
