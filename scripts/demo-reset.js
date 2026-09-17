@@ -7,9 +7,10 @@
 // Attendance rows are real records of someone's working day; a demo convenience must not be
 // able to quietly wipe more than the one day it was pointed at.
 //
-//   node scripts/demo-reset.js              # dry run — lists what it found
-//   node scripts/demo-reset.js --yes        # clears today
+//   node scripts/demo-reset.js                      # dry run — lists what it found
+//   node scripts/demo-reset.js --yes                # clears today
 //   node scripts/demo-reset.js --date=2026-09-14 --yes
+//   node scripts/demo-reset.js --opsId=Ops9900003 --yes   # one QA dummy, not the config one
 
 const fs = require('fs');
 const path = require('path');
@@ -31,7 +32,23 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
   process.exit(1);
 }
 
-const opsId = config.spg.opsId;
+/* --opsId widens this past the single configured SPG so the QA dummies can each be reset
+   without editing config.js between runs. It is deliberately not a free-text field: the only
+   ids accepted are the configured one and the QA dummies, matched on the prefixes that were
+   reserved for them in the roster. Thirteen demo accounts are worth the convenience; five
+   hundred real attendance records are not, and a mistyped flag should fail loudly rather than
+   blank somebody's working day. */
+const QA_DUMMY = /^(Ops99\d{5}|OSQA\d{4})$/i;
+const opsIdArg = (args.find(a => a.startsWith('--opsId=')) || '').split('=')[1];
+const opsId = opsIdArg || config.spg.opsId;
+
+if (opsIdArg && opsIdArg !== config.spg.opsId && !QA_DUMMY.test(opsIdArg)) {
+  console.error(`OpsID ditolak: ${opsIdArg}`);
+  console.error('Skrip ini hanya boleh dipakai untuk akun demo (Ops99xxxxx / OSQAxxxx)');
+  console.error(`atau untuk SPG yang dikonfigurasi di config.js (${config.spg.opsId}).`);
+  process.exit(1);
+}
+
 const sessionId = `${opsId}_${date}`;
 
 function blank(n) { return new Array(n).fill(''); }

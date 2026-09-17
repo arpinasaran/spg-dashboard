@@ -3,10 +3,11 @@
 // a different person; every route resolves identity from this OpsID via lib/identity.js.
 module.exports = {
   spg: {
-    // An FMSID (OPSxxxx), not an OSID -- see lib/spgSheet.js. This one predates that change
-    // and will not resolve until it is swapped for the same person's FMSID. It only affects
-    // a local run: a deployment takes the identity from the session cookie instead.
-    opsId: 'OS212341',
+    // An FMSID ("Ops" + 7 digits), not an OSID -- see lib/spgSheet.js. The roster carries
+    // both and they agree on nothing, so the OSID that used to sit here (OS212341) no longer
+    // resolves; this is the same person's FMSID. It only affects a local run: a deployment
+    // takes the identity from the session cookie instead.
+    opsId: 'Ops1622838',
   },
   sheets: {
     // "[Field Recruiter] SPG Active Email", tab "SPG List LM"

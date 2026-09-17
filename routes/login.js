@@ -50,7 +50,9 @@ function page({ error = '', opsId = '' } = {}) {
     background: #fff; border: 1.5px solid #ddd3bb; border-radius: 12px;
   }
   input:focus { outline: 2px solid #8a7c55; outline-offset: 1px; border-color: #8a7c55; }
-  #opsId { text-transform: uppercase; }
+  /* No text-transform here. An Ops ID is mixed case -- "Ops1624800" -- so forcing uppercase
+     would show the SPG something different from what is printed on the slip they were given.
+     The match itself is case-insensitive, so nothing depends on how they type it. */
   button {
     width: 100%; margin-top: 20px; padding: 14px 16px; font-size: 1rem; font-weight: 600;
     color: #fbf7ec; background: #6f6444; border: 0; border-radius: 12px; cursor: pointer;
@@ -66,11 +68,11 @@ function page({ error = '', opsId = '' } = {}) {
 <body>
   <form method="post" action="/login">
     <h1>Rute Harian</h1>
-    <p class="sub">Masuk dengan OS ID dan kata sandi kamu.</p>
+    <p class="sub">Masuk dengan Ops ID dan kata sandi kamu.</p>
 
-    <label for="opsId">OS ID</label>
+    <label for="opsId">Ops ID</label>
     <input id="opsId" name="opsId" type="text" value="${escape(opsId)}"
-           autocomplete="username" autocapitalize="characters" autocorrect="off"
+           autocomplete="username" autocapitalize="none" autocorrect="off"
            spellcheck="false" required ${opsId ? '' : 'autofocus'}>
 
     <label for="password">Kata sandi</label>
@@ -117,7 +119,7 @@ router.post('/login', express.urlencoded({ extended: false }), async (req, res) 
     // turn this form into a way to discover which SPGs have accounts.
     return res.status(401).type('html').send(page({
       opsId,
-      error: 'OS ID atau kata sandi salah.',
+      error: 'Ops ID atau kata sandi salah.',
     }));
   }
 
