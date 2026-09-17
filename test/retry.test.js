@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { withRetry, RETRYABLE } = require('../lib/googleClient');
+const { withRetry, RETRYABLE, isTransient } = require('../lib/googleClient');
 
 /* Sheets allows 60 write requests per minute per user, and the service account is one user.
    Two writes per clock-in means the ceiling is 30 clock-ins a minute; a morning that puts 500
@@ -54,4 +54,34 @@ test('backoff grows and stays under the function timeout', async () => {
   const elapsed = Date.now() - started;
   assert.ok(elapsed < 10000, `total backoff was ${elapsed}ms, comfortably inside maxDuration 60s`);
   assert.ok(elapsed >= 250, 'it did actually wait between attempts');
+});
+
+/* Transport failures. A snapshot run's uploads come back as bare ECONNRESET with no HTTP
+   status at all, and the original classifier only looked at statuses — so the retry that
+   exists for exactly this case never fired, and snapshots were left at yesterday's numbers
+   while every step still reported success. */
+
+test('a connection reset is treated as worth retrying', () => {
+  assert.equal(isTransient(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' })), true);
+  assert.equal(isTransient(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' })), true);
+  for (const code of ['ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EPIPE']) {
+    assert.equal(isTransient(Object.assign(new Error('x'), { code })), true, code);
+  }
+});
+
+test('a cause nested one level down is still found', () => {
+  // node-fetch reports the real reason under .cause rather than on the error itself.
+  const err = new Error('request to https://… failed');
+  err.cause = { code: 'ECONNRESET' };
+  assert.equal(isTransient(err), true);
+});
+
+test('the message alone is enough when there is no code at all', () => {
+  assert.equal(isTransient(new Error('request failed, reason: read ECONNRESET')), true);
+});
+
+test('a request that was actually answered and refused is not retried', () => {
+  assert.equal(isTransient(Object.assign(new Error('forbidden'), { code: 403 })), false);
+  assert.equal(isTransient(Object.assign(new Error('bad request'), { code: 400 })), false);
+  assert.equal(isTransient(new Error('Service Accounts do not have storage quota')), false);
 });

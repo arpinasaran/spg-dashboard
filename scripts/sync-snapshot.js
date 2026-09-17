@@ -38,7 +38,7 @@ const fs = require('fs');
 const path = require('path');
 
 const config = require('../config');
-const { flush } = require('../lib/background');
+const { flush, setMaxConcurrent } = require('../lib/background');
 const store = require('../lib/store');
 const driveFiles = require('../lib/driveFiles');
 const gws = require('../lib/gwsClient');
@@ -128,6 +128,12 @@ async function targetOpsIds() {
 async function main() {
   requireEnv();
   registerHumanCreator();
+
+  /* One snapshot write per SPG, released as fast as the loops below can call set(). Left
+     unbounded that is roughly a thousand Drive uploads in flight at once, which Google
+     answers by resetting connections — see the note on the ceiling in lib/background.js.
+     Eight keeps the pipe busy without provoking that. */
+  setMaxConcurrent(8);
 
   const opsIds = await targetOpsIds();
   console.log(`Menyiapkan snapshot untuk ${opsIds.length} SPG: ${opsIds.join(', ')}`);
