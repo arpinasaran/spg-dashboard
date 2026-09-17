@@ -114,19 +114,44 @@ function listenOnFreePort() {
 }
 
 function waitForCode(server, expectedState) {
+  /* Read once, here, while the server is certainly still listening.
+
+     server.address() returns null the moment the server closes, and a browser sends more
+     than the one request this flow is waiting for — a favicon, a retry on a kept-alive
+     connection, a reload of the callback tab. Reading the port inside the handler meant one
+     of those late requests threw on null and killed the process, after the code had been
+     handed over but before it could be exchanged for a token. */
+  const { port } = server.address();
+
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Tidak ada balasan dari browser dalam 5 menit.')), 5 * 60 * 1000);
+    // A promise settles once. Everything the browser sends afterwards must be answered
+    // politely and otherwise ignored, rather than racing the exchange already under way.
+    let settled = false;
+    const finish = (act, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      act(value);
+    };
+
+    const timer = setTimeout(
+      () => finish(reject, new Error('Tidak ada balasan dari browser dalam 5 menit.')),
+      5 * 60 * 1000,
+    );
 
     server.on('request', (req, res) => {
-      const url = new URL(req.url, `http://127.0.0.1:${server.address().port}`);
+      let url;
+      try {
+        url = new URL(req.url, `http://127.0.0.1:${port}`);
+      } catch {
+        res.writeHead(400).end();
+        return;
+      }
+
       if (url.pathname !== '/callback') {
         res.writeHead(404).end();
         return;
       }
-
-      const code = url.searchParams.get('code');
-      const error = url.searchParams.get('error');
-      const state = url.searchParams.get('state');
 
       const say = (message) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -134,21 +159,30 @@ function waitForCode(server, expectedState) {
           <p>${message}</p><p style="color:#666">Tab ini boleh ditutup.</p></body>`);
       };
 
-      clearTimeout(timer);
+      if (settled) {
+        // A reload of a callback URL whose code has already been spent.
+        say('Sudah diproses. Lihat terminal.');
+        return;
+      }
+
+      const code = url.searchParams.get('code');
+      const error = url.searchParams.get('error');
+      const state = url.searchParams.get('state');
 
       // The state check is what stops another page on this machine from feeding us a code.
       if (state !== expectedState) {
         say('State tidak cocok — dibatalkan.');
-        reject(new Error('State tidak cocok. Ulangi dari awal.'));
+        finish(reject, new Error('State tidak cocok. Ulangi dari awal.'));
       } else if (error) {
         say(`Ditolak: ${error}`);
-        reject(new Error(`Google menolak: ${error}`));
+        finish(reject, new Error(`Google menolak: ${error}`));
       } else if (!code) {
         say('Tidak ada code pada balasan.');
-        reject(new Error('Balasan tanpa code.'));
+        finish(reject, new Error('Balasan tanpa code.'));
       } else {
-        say('Berhasil. Token sudah ditulis ke .env.');
-        resolve(code);
+        // Deliberately not "token sudah ditulis": nothing has been written yet at this point.
+        say('Berhasil. Kembali ke terminal.');
+        finish(resolve, code);
       }
     });
   });
@@ -195,6 +229,7 @@ async function main() {
   try {
     code = await waitForCode(server, state);
   } finally {
+    server.closeAllConnections?.();
     server.close();
   }
 
@@ -218,7 +253,13 @@ async function main() {
   console.log('\nLangkah berikutnya: salin ketiga nilai OAuth itu ke environment Production di Vercel.');
 }
 
-main().catch((err) => {
-  console.error('\n' + err.message);
-  process.exit(1);
-});
+// Runs as a script, imports as a module. The callback handling is the part that broke, and
+// it cannot be tested at all if requiring this file starts a browser and a five-minute wait.
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('\n' + err.message);
+    process.exit(1);
+  });
+}
+
+module.exports = { listenOnFreePort, waitForCode, upsertEnv, SCOPES };
