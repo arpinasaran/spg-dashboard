@@ -371,6 +371,7 @@ function renderProposals() {
       <div class="row-main">
         <div class="row-title">${p.name}</div>
         <div class="row-sub"><span class="chip">${p.category || '—'}</span><span>${when}</span></div>
+        ${p.corrections && p.corrections.length ? `<div class="note-box"><b>Diubah CF:</b> ${p.corrections.map(c => `${c.field}: ${c.from || '—'} → ${c.to}`).join(' · ')}</div>` : ''}
         ${p.reviewNote ? `<div class="note-box"><b>Catatan CF:</b> ${p.reviewNote}</div>` : ''}
       </div>
       <div class="row-action"><span class="statuschip ${cls}">${p.status}</span></div>
