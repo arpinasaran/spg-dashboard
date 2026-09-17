@@ -10,3 +10,6 @@ server.log
 # yang bukan milik repo ini. Remote-nya publik, jadi dokumen ini tidak pernah boleh ikut.
 # Simpan/bagikan lewat Drive internal.
 INTEGRATION_CONTRACT.md
+
+# Email internal dan kredensial akun uji. Alasan yang sama persis.
+QA_TESTERS.md
